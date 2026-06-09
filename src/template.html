@@ -143,7 +143,7 @@ footer{margin-top:16px;padding:14px 2px 0;color:var(--faint);font:12px "IBM Plex
     <div>
       <div class="eyebrow">NFL draft model</div>
       <h1>APEX <span>Draft Board</span></h1>
-      <div class="subline">Two-stage residual board using pick-market baselines, positional curves, combine signals, and Career AV percentile outcomes.</div>
+      <div class="subline">Two-stage residual board covering 2000-2026, with historical pick-market baselines, Career AV outcomes, and 2025-2026 prospect watchlists.</div>
     </div>
     <div class="kpi-strip" aria-label="Model benchmarks">
       <div class="kpi"><b>0.630</b><small>Holdout Spearman rho</small></div>
@@ -193,6 +193,7 @@ footer{margin-top:16px;padding:14px 2px 0;color:var(--faint);font:12px "IBM Plex
       <button type="button" data-mode="all" aria-pressed="true">All</button>
       <button type="button" data-mode="model_edge" aria-pressed="false">APEX edge</button>
       <button type="button" data-mode="model_fade" aria-pressed="false">APEX fade</button>
+      <button type="button" data-mode="prospects" aria-pressed="false">Prospects</button>
       <button type="button" data-mode="actual_hits" aria-pressed="false">Actual hits</button>
       <button type="button" data-mode="actual_misses" aria-pressed="false">Actual misses</button>
     </div>
@@ -270,7 +271,7 @@ footer{margin-top:16px;padding:14px 2px 0;color:var(--faint);font:12px "IBM Plex
     </aside>
   </main>
 
-  <footer>APEX v1.1 | target: within-class Career AV percentile | validation: 2012-2014 out-of-time holdout | data: public Pro-Football-Reference draft history.</footer>
+  <footer>APEX v1.1 | target: within-class Career AV percentile | expanded board: 2000-2026 | validation: 2012-2014 out-of-time holdout | data: public Pro-Football-Reference and draft archives.</footer>
 </div>
 <div class="tip" id="tooltip"></div>
 
@@ -347,6 +348,7 @@ function passes(row){
   const delta=actualDelta(row);
   if(state.mode==="model_edge" && !(row.edge>=.05))return false;
   if(state.mode==="model_fade" && !(row.edge<=-.05))return false;
+  if(state.mode==="prospects" && !(row.pick===null||row.actual===null))return false;
   if(state.mode==="actual_hits" && !(delta>=.20))return false;
   if(state.mode==="actual_misses" && !(delta<=-.20))return false;
   return true;
@@ -463,8 +465,8 @@ function renderFocus(row){
       ${scoreLine("APEX",row.apex,"var(--cyan)")}
       ${scoreLine("Market",row.market,"var(--amber)")}
       ${scoreLine("Actual",row.actual,"var(--green)")}
-      ${scoreLine("Edge",Math.max(0,Math.min(1,.5+(row.edge||0))),row.edge>=0?"var(--green)":"var(--red)",signed(row.edge))}
-      ${scoreLine("Actual +/-",Math.max(0,Math.min(1,.5+(delta||0))),delta>=0?"var(--green)":"var(--red)",signed(delta))}
+      ${scoreLine("Edge",Math.max(0,Math.min(1,.5+(row.edge||0))),row.edge===null?"var(--blue)":row.edge>=0?"var(--green)":"var(--red)",signed(row.edge))}
+      ${scoreLine("Actual +/-",Math.max(0,Math.min(1,.5+(delta||0))),delta===null?"var(--blue)":delta>=0?"var(--green)":"var(--red)",signed(delta))}
     </div>`;
 }
 function scoreLine(label,value,color,display){
@@ -473,9 +475,10 @@ function scoreLine(label,value,color,display){
 }
 
 function renderBoards(filtered){
-  const model=[...filtered].filter(r=>r.edge!==null).sort((a,b)=>b.edge-a.edge).slice(0,6);
+  const modelSource=[...filtered].filter(r=>r.edge!==null);
+  const model=(modelSource.length?modelSource:[...filtered].filter(r=>r.apex!==null)).sort((a,b)=>(modelSource.length?b.edge-a.edge:b.apex-a.apex)).slice(0,6);
   const actual=[...filtered].filter(r=>actualDelta(r)!==null).sort((a,b)=>actualDelta(b)-actualDelta(a)).slice(0,6);
-  els.modelBoard.innerHTML=model.length?model.map(r=>boardItem(r,signed(r.edge))).join(""):`<li><span class="board-meta">No matches</span><span></span></li>`;
+  els.modelBoard.innerHTML=model.length?model.map(r=>boardItem(r,modelSource.length?signed(r.edge):pct(r.apex))).join(""):`<li><span class="board-meta">No matches</span><span></span></li>`;
   els.actualBoard.innerHTML=actual.length?actual.map(r=>boardItem(r,signed(actualDelta(r)))).join(""):`<li><span class="board-meta">No matches</span><span></span></li>`;
 }
 function boardItem(row,value){
@@ -590,6 +593,7 @@ els.mode.addEventListener("click",e=>{
   if(!btn)return;
   state.mode=btn.dataset.mode;
   els.mode.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(b===btn)));
+  if(state.mode==="prospects" && els.sort.value==="edge_desc")els.sort.value="apex_desc";
   render();
 });
 [els.search,els.year,els.pos,els.round,els.sort].forEach(el=>el.addEventListener(el===els.search?"input":"change",render));

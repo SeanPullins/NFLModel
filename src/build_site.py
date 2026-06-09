@@ -27,6 +27,15 @@ cols = [
 df = pd.read_csv(DATA_PATH)
 df["Pick"] = df["Pick"].where(df["Pick"] < 263)
 df["College"] = df["College"].fillna("Unknown")
+
+if "Rnd" not in df.columns:
+    round_bins = [0, 32, 64, 100, 135, 176, 220, 262]
+    df["Rnd"] = pd.cut(
+        df["Pick"],
+        bins=round_bins,
+        labels=[1, 2, 3, 4, 5, 6, 7],
+    ).astype("float")
+
 data = df[cols].copy()
 for col in ["CarAV", "y", "apex", "exp_at_pick", "talent_resid", "surplus"]:
     data[col] = data[col].round(4)

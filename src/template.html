@@ -1,0 +1,167 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>APEX Draft Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;800&family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#101614;--panel:#161f1c;--line:#26332e;--ink:#d9e3de;--dim:#7d8f88;
+--amber:#f2b441;--green:#5fc88f;--red:#e0654f;--blue:#6aa3c8}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 Inter,sans-serif}
+header{padding:34px 28px 20px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:18px;align-items:baseline}
+h1{font:800 44px/1 "Saira Condensed";letter-spacing:.5px}
+h1 span{color:var(--amber)}
+.sub{color:var(--dim);font:400 13px "IBM Plex Mono";max-width:560px}
+.metrics{margin-left:auto;display:flex;gap:26px;font-family:"IBM Plex Mono"}
+.metrics b{display:block;font:600 26px "Saira Condensed";color:var(--green)}
+.metrics small{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:1px}
+main{display:grid;grid-template-columns:1.05fr .95fr;gap:0;min-height:70vh}
+@media(max-width:980px){main{grid-template-columns:1fr}}
+section{padding:22px 28px;border-right:1px solid var(--line)}
+.controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+select,input{background:var(--panel);border:1px solid var(--line);color:var(--ink);
+padding:8px 10px;border-radius:6px;font:13px "IBM Plex Mono"}
+input{flex:1;min-width:140px}
+select:focus,input:focus{outline:2px solid var(--amber);outline-offset:1px}
+table{width:100%;border-collapse:collapse;font:13px "IBM Plex Mono"}
+th{color:var(--dim);text-align:left;font-weight:400;text-transform:uppercase;font-size:10.5px;
+letter-spacing:1px;padding:6px 8px;border-bottom:1px solid var(--line);cursor:pointer;user-select:none;white-space:nowrap}
+th.active{color:var(--amber)}
+td{padding:7px 8px;border-bottom:1px solid #1c2622;white-space:nowrap}
+tr:hover td{background:#1a2420}
+.pl{font-weight:600;color:#fff}
+.pos{font-size:11px;color:var(--dim)}
+.sv{font-weight:600}.up{color:var(--green)}.dn{color:var(--red)}
+.bar{display:inline-block;height:7px;border-radius:3px;vertical-align:middle}
+canvas{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.legend{display:flex;gap:18px;color:var(--dim);font:11px "IBM Plex Mono";margin:10px 2px}
+.dotk{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+.boards{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px}
+@media(max-width:560px){.boards{grid-template-columns:1fr}}
+.board h3{font:600 14px "Saira Condensed";letter-spacing:2px;text-transform:uppercase;color:var(--dim);margin-bottom:8px}
+.board li{list-style:none;display:flex;justify-content:space-between;font:12.5px "IBM Plex Mono";
+padding:6px 4px;border-bottom:1px solid #1c2622}
+footer{padding:18px 28px;color:var(--dim);font:11px "IBM Plex Mono";border-top:1px solid var(--line)}
+.tip{position:fixed;pointer-events:none;background:#0c110f;border:1px solid var(--amber);
+border-radius:6px;padding:8px 10px;font:12px "IBM Plex Mono";display:none;z-index:9}
+@media (prefers-reduced-motion:no-preference){tr td{transition:background .12s}}
+
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.chip{background:var(--panel);border:1px solid var(--line);color:var(--dim);padding:9px 16px;
+border-radius:999px;font:600 13px Inter;cursor:pointer;min-height:40px}
+.chip.on{background:var(--amber);color:#181203;border-color:var(--amber)}
+.hint{color:var(--dim);font:12px Inter;margin:0 0 12px}
+.tag{font-size:10px;letter-spacing:1px;border:1px solid var(--blue);color:var(--blue);
+border-radius:4px;padding:1px 5px;margin-left:6px}
+@media(max-width:680px){h1{font-size:34px}.metrics{display:none}section{padding:16px 14px}}
+</style></head><body>
+<header>
+  <div><h1>APEX <span>DRAFT BOARD</span></h1>
+  <div class="sub">Two-stage residual model · isotonic positional pick curves + combine-residual LightGBM · 2000–2016 classes, PFR public data</div></div>
+  <div class="metrics">
+    <div><b>0.630</b><small>Spearman ρ · holdout</small></div>
+    <div><b>0.619</b><small>pick-only baseline</small></div>
+    <div><b id="nShown">0</b><small>players shown</small></div>
+  </div>
+</header>
+<main>
+<section>
+  <div class="controls">
+    <input id="q" placeholder="Search player or school…" aria-label="Search">
+    <select id="yr"><option value="">All years</option></select>
+    <select id="pos"><option value="">All positions</option></select>
+    <select id="lens"><option value="surplus">Lens: surplus value</option>
+      <option value="apex">Lens: APEX score</option><option value="y">Lens: actual outcome</option></select>
+  </div>
+  <div style="max-height:62vh;overflow:auto">
+  <table><thead><tr>
+    <th data-k="0">Year</th><th data-k="1">Player</th><th data-k="5">Pick</th>\n    <th data-k="6" title="PFR Career Approximate Value">Career value</th><th data-k="7" title="Model score: expected outcome percentile">Model grade</th><th data-k="9" class="active" title="Model grade minus what that pick slot usually returns">Value vs pick ▾</th>
+  </tr></thead><tbody id="tb"></tbody></table></div>
+</section>
+<section>
+  <canvas id="cv" height="420" aria-label="Pick versus outcome scatter"></canvas>
+  <div class="legend">
+    <span><span class="dotk" style="background:var(--green)"></span>beat market expectation</span>
+    <span><span class="dotk" style="background:var(--red)"></span>fell short</span>
+    <span><span style="border-top:2px dashed var(--amber);display:inline-block;width:22px;vertical-align:3px"></span>market curve</span>
+  </div>
+  <div class="boards">
+    <div class="board"><h3>Steals — Rd 3+</h3><ul id="steals"></ul></div>
+    <div class="board"><h3>Misses — Rd 1</h3><ul id="busts"></ul></div>
+  </div>
+</section>
+</main>
+<footer>APEX v1.1 · target = within-class Career AV percentile (censoring-proof) · per-position residual shrinkage tuned 2010–11 · out-of-time test 2012–14 · data: Pro-Football-Reference via public GitHub archives</footer>
+<div class="tip" id="tip"></div>
+<script>
+const D=__DATA__; // [Year,Player,Pos,posG,College,Pick,CarAV,apex,exp,surplus]
+const tb=document.getElementById('tb'),tip=document.getElementById('tip');
+const yrs=[...new Set(D.map(r=>r[0]))].sort((a,b)=>b-a);
+const poss=[...new Set(D.map(r=>r[3]))].sort();
+yr.innerHTML+=yrs.map(y=>`<option>${y}</option>`).join('');
+pos.innerHTML+=poss.map(p=>`<option>${p}</option>`).join('');
+let sortK=9,asc=false,era="2026";
+const ERAS=[["2026","2026 class"],["2025","2025 class"],["recent","2020–24"],["classic","2000–19"],["","All"]];
+chips.innerHTML=ERAS.map(([v,l])=>`<button class="chip${v===era?' on':''}" data-v="${v}">${l}</button>`).join("");
+chips.onclick=e=>{const c=e.target.closest('.chip');if(!c)return;era=c.dataset.v;
+ document.querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x.dataset.v===era));
+ if(era==="2026"||era==="2025"){sortK=7;}else{sortK=9;} render();};
+function eraPass(r){if(era==="2026")return r[0]==2026;if(era==="2025")return r[0]==2025;
+ if(era==="recent")return r[0]>=2020&&r[0]<=2024;if(era==="classic")return r[0]<=2019;return true;}
+function filt(){const s=q.value.toLowerCase();
+ return D.filter(r=>eraPass(r)&&(!pos.value||r[3]==pos.value)&&
+  (!s||r[1].toLowerCase().includes(s)||String(r[4]).toLowerCase().includes(s)));}
+function render(){
+ const nv=v=>v==null?-9:v; let rows=filt().sort((a,b)=>asc?nv(a[sortK])-nv(b[sortK]):nv(b[sortK])-nv(a[sortK]));
+ if(sortK===1)rows=filt().sort((a,b)=>asc?a[1].localeCompare(b[1]):b[1].localeCompare(a[1]));
+ nShown.textContent=rows.length;
+ tb.innerHTML=rows.slice(0,400).map(r=>{
+  const pro=r[5]==null||r[6]==null, sv=r[9];
+  const svCell = (sv==null)?'<td class="pos">pre-draft</td>'
+   :`<td class="sv ${sv>=0?'up':'dn'}">${sv>=0?'+':''}${sv.toFixed(2)}<span class="bar" style="width:${Math.min(40,Math.abs(sv)*120)}px;background:${sv>=0?'var(--green)':'var(--red)'}"></span></td>`;
+  return `<tr><td>${r[0]}</td><td><span class="pl">${r[1]}</span> <span class="pos">${r[2]} · ${r[4]}</span>${pro?'<span class="tag">PROSPECT</span>':''}</td>
+  <td>${r[5]??'—'}</td><td>${r[6]??'—'}</td><td>${(r[7]??0).toFixed(2)}</td>${svCell}</tr>`}).join('');
+ 
+ hint.textContent = (era==="2026"||era==="2025")
+  ? "Pre-draft athletic grades — combine + pro-day testing only; no draft slot yet. Higher = better projected pro outcome."
+  : "Value vs pick = how a player performed (or projects) compared with what their draft slot usually returns. Green = outplayed the slot.";
+ draw(rows.filter(r=>r[5]!=null&&r[6]!=null&&r[9]!=null));boardsFill();}
+document.querySelectorAll('th').forEach(h=>h.onclick=()=>{const k=+h.dataset.k;
+ if(k===sortK)asc=!asc;else{sortK=k;asc=false}
+ document.querySelectorAll('th').forEach(x=>x.classList.toggle('active',+x.dataset.k===k));render()});
+[q,yr,pos].forEach(e=>e.oninput=render);
+// scatter
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');let pts=[];
+function draw(rows){
+ const W=cv.width=cv.clientWidth*2,H=cv.height=840;ctx.scale(1,1);
+ ctx.clearRect(0,0,W,H);const padL=70,padB=60,padT=30,padR=30;
+ const x=p=>padL+(p-1)/259*(W-padL-padR), yv=v=>H-padB-v*(H-padB-padT);
+ ctx.strokeStyle='#26332e';ctx.beginPath();ctx.moveTo(padL,padT);ctx.lineTo(padL,H-padB);ctx.lineTo(W-padR,H-padB);ctx.stroke();
+ ctx.fillStyle='#7d8f88';ctx.font='20px IBM Plex Mono';
+ [1,32,64,128,192,256].forEach(p=>ctx.fillText(p,x(p)-10,H-padB+30));
+ ctx.fillText('pick',W/2,H-12);ctx.save();ctx.translate(18,H/2);ctx.rotate(-Math.PI/2);ctx.fillText('class outcome pct',0,0);ctx.restore();
+ // market curve = mean exp per pick bucket
+ const buck={};rows.forEach(r=>{const b=Math.round(r[5]/8)*8;(buck[b]=buck[b]||[]).push(r[8])});
+ ctx.strokeStyle='#f2b441';ctx.setLineDash([8,7]);ctx.lineWidth=3;ctx.beginPath();
+ Object.keys(buck).map(Number).sort((a,b)=>a-b).forEach((b,i)=>{const m=buck[b].reduce((s,v)=>s+v,0)/buck[b].length;
+  i?ctx.lineTo(x(b),yv(m)):ctx.moveTo(x(b),yv(m))});ctx.stroke();ctx.setLineDash([]);
+ pts=[];const sample=rows.length>1500?rows.filter((_,i)=>i%3==0):rows;
+ sample.forEach(r=>{ const py=yv(Math.min(1,Math.max(0,rget(r)))), px=x(r[5]); const c=(rget(r)>r[8])?'#5fc88f':'#e0654f';
+  ctx.fillStyle=c;ctx.globalAlpha=.6;ctx.beginPath();ctx.arc(px,py,5,0,7);ctx.fill();ctx.globalAlpha=1;
+  pts.push({px:px/2,py:py/2,r});});
+}
+function rget(r){return Math.min(1,(r[6]||0)/ (avMax[r[0]]||1));}
+const avMax={};D.forEach(r=>{avMax[r[0]]=Math.max(avMax[r[0]]||1,r[6]||0)});
+cv.onmousemove=e=>{const b=cv.getBoundingClientRect(),mx=e.clientX-b.left,my=e.clientY-b.top;
+ const h=pts.find(p=>Math.hypot(p.px-mx,p.py-my)<7);
+ if(h){tip.style.display='block';tip.style.left=e.clientX+14+'px';tip.style.top=e.clientY+10+'px';
+  tip.textContent=`${h.r[1]} · ${h.r[2]} ${h.r[0]} · pick ${h.r[5]} · AV ${h.r[6]}`;}else tip.style.display='none';};
+cv.onmouseleave=()=>tip.style.display='none';
+function boardsFill(){
+ const f=filt();
+ steals.innerHTML=f.filter(r=>r[9]!=null&&r[5]>=65).sort((a,b)=>b[9]-a[9]).slice(0,7)
+  .map(r=>`<li><span>${r[1]} <span class="pos">${r[2]} '${String(r[0]).slice(2)} · pk ${r[5]}</span></span><span class="up">+${r[9].toFixed(2)}</span></li>`).join('');
+ busts.innerHTML=f.filter(r=>r[9]!=null&&r[5]<=32).sort((a,b)=>a[9]-b[9]).slice(0,7)
+  .map(r=>`<li><span>${r[1]} <span class="pos">${r[2]} '${String(r[0]).slice(2)} · pk ${r[5]}</span></span><span class="dn">${r[9].toFixed(2)}</span></li>`).join('');}
+render();addEventListener('resize',render);
+</script></body></html>

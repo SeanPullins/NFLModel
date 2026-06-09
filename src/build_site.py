@@ -1,0 +1,11 @@
+import pandas as pd, json
+df = pd.read_csv("apex_board.csv")
+df["Pick"]=df.Pick.where(df.Pick<263)
+d = df[(df.Pick.notna())|(df.Year>=2025)].copy()
+d["College"]=d["College"].fillna("—")
+d=d.where(pd.notnull(d),None)
+rows = d[["Year","Player","Pos","pos_g","College","Pick","CarAV","apex","exp_at_pick","surplus"]].round(3).values.tolist()
+DATA = json.dumps(rows, separators=(",",":"))
+html = open("template.html").read().replace("__DATA__", DATA)
+open("site/index.html","w").write(html)
+print("rows:",len(rows),"size:",len(html)//1024,"KB")

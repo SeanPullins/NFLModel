@@ -1,167 +1,616 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8">
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>APEX Draft Board</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;800&family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#101614;--panel:#161f1c;--line:#26332e;--ink:#d9e3de;--dim:#7d8f88;
---amber:#f2b441;--green:#5fc88f;--red:#e0654f;--blue:#6aa3c8}
-*{box-sizing:border-box;margin:0}
-body{background:var(--bg);color:var(--ink);font:15px/1.5 Inter,sans-serif}
-header{padding:34px 28px 20px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:18px;align-items:baseline}
-h1{font:800 44px/1 "Saira Condensed";letter-spacing:.5px}
-h1 span{color:var(--amber)}
-.sub{color:var(--dim);font:400 13px "IBM Plex Mono";max-width:560px}
-.metrics{margin-left:auto;display:flex;gap:26px;font-family:"IBM Plex Mono"}
-.metrics b{display:block;font:600 26px "Saira Condensed";color:var(--green)}
-.metrics small{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:1px}
-main{display:grid;grid-template-columns:1.05fr .95fr;gap:0;min-height:70vh}
-@media(max-width:980px){main{grid-template-columns:1fr}}
-section{padding:22px 28px;border-right:1px solid var(--line)}
-.controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
-select,input{background:var(--panel);border:1px solid var(--line);color:var(--ink);
-padding:8px 10px;border-radius:6px;font:13px "IBM Plex Mono"}
-input{flex:1;min-width:140px}
-select:focus,input:focus{outline:2px solid var(--amber);outline-offset:1px}
-table{width:100%;border-collapse:collapse;font:13px "IBM Plex Mono"}
-th{color:var(--dim);text-align:left;font-weight:400;text-transform:uppercase;font-size:10.5px;
-letter-spacing:1px;padding:6px 8px;border-bottom:1px solid var(--line);cursor:pointer;user-select:none;white-space:nowrap}
-th.active{color:var(--amber)}
-td{padding:7px 8px;border-bottom:1px solid #1c2622;white-space:nowrap}
-tr:hover td{background:#1a2420}
-.pl{font-weight:600;color:#fff}
-.pos{font-size:11px;color:var(--dim)}
-.sv{font-weight:600}.up{color:var(--green)}.dn{color:var(--red)}
-.bar{display:inline-block;height:7px;border-radius:3px;vertical-align:middle}
-canvas{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:10px}
-.legend{display:flex;gap:18px;color:var(--dim);font:11px "IBM Plex Mono";margin:10px 2px}
-.dotk{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:-1px}
-.boards{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px}
-@media(max-width:560px){.boards{grid-template-columns:1fr}}
-.board h3{font:600 14px "Saira Condensed";letter-spacing:2px;text-transform:uppercase;color:var(--dim);margin-bottom:8px}
-.board li{list-style:none;display:flex;justify-content:space-between;font:12.5px "IBM Plex Mono";
-padding:6px 4px;border-bottom:1px solid #1c2622}
-footer{padding:18px 28px;color:var(--dim);font:11px "IBM Plex Mono";border-top:1px solid var(--line)}
-.tip{position:fixed;pointer-events:none;background:#0c110f;border:1px solid var(--amber);
-border-radius:6px;padding:8px 10px;font:12px "IBM Plex Mono";display:none;z-index:9}
-@media (prefers-reduced-motion:no-preference){tr td{transition:background .12s}}
-
-.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-.chip{background:var(--panel);border:1px solid var(--line);color:var(--dim);padding:9px 16px;
-border-radius:999px;font:600 13px Inter;cursor:pointer;min-height:40px}
-.chip.on{background:var(--amber);color:#181203;border-color:var(--amber)}
-.hint{color:var(--dim);font:12px Inter;margin:0 0 12px}
-.tag{font-size:10px;letter-spacing:1px;border:1px solid var(--blue);color:var(--blue);
-border-radius:4px;padding:1px 5px;margin-left:6px}
-@media(max-width:680px){h1{font-size:34px}.metrics{display:none}section{padding:16px 14px}}
-</style></head><body>
-<header>
-  <div><h1>APEX <span>DRAFT BOARD</span></h1>
-  <div class="sub">Two-stage residual model · isotonic positional pick curves + combine-residual LightGBM · 2000–2016 classes, PFR public data</div></div>
-  <div class="metrics">
-    <div><b>0.630</b><small>Spearman ρ · holdout</small></div>
-    <div><b>0.619</b><small>pick-only baseline</small></div>
-    <div><b id="nShown">0</b><small>players shown</small></div>
-  </div>
-</header>
-<main>
-<section>
-  <div class="controls">
-    <input id="q" placeholder="Search player or school…" aria-label="Search">
-    <select id="yr"><option value="">All years</option></select>
-    <select id="pos"><option value="">All positions</option></select>
-    <select id="lens"><option value="surplus">Lens: surplus value</option>
-      <option value="apex">Lens: APEX score</option><option value="y">Lens: actual outcome</option></select>
-  </div>
-  <div style="max-height:62vh;overflow:auto">
-  <table><thead><tr>
-    <th data-k="0">Year</th><th data-k="1">Player</th><th data-k="5">Pick</th>\n    <th data-k="6" title="PFR Career Approximate Value">Career value</th><th data-k="7" title="Model score: expected outcome percentile">Model grade</th><th data-k="9" class="active" title="Model grade minus what that pick slot usually returns">Value vs pick ▾</th>
-  </tr></thead><tbody id="tb"></tbody></table></div>
-</section>
-<section>
-  <canvas id="cv" height="420" aria-label="Pick versus outcome scatter"></canvas>
-  <div class="legend">
-    <span><span class="dotk" style="background:var(--green)"></span>beat market expectation</span>
-    <span><span class="dotk" style="background:var(--red)"></span>fell short</span>
-    <span><span style="border-top:2px dashed var(--amber);display:inline-block;width:22px;vertical-align:3px"></span>market curve</span>
-  </div>
-  <div class="boards">
-    <div class="board"><h3>Steals — Rd 3+</h3><ul id="steals"></ul></div>
-    <div class="board"><h3>Misses — Rd 1</h3><ul id="busts"></ul></div>
-  </div>
-</section>
-</main>
-<footer>APEX v1.1 · target = within-class Career AV percentile (censoring-proof) · per-position residual shrinkage tuned 2010–11 · out-of-time test 2012–14 · data: Pro-Football-Reference via public GitHub archives</footer>
-<div class="tip" id="tip"></div>
-<script>
-const D=__DATA__; // [Year,Player,Pos,posG,College,Pick,CarAV,apex,exp,surplus]
-const tb=document.getElementById('tb'),tip=document.getElementById('tip');
-const yrs=[...new Set(D.map(r=>r[0]))].sort((a,b)=>b-a);
-const poss=[...new Set(D.map(r=>r[3]))].sort();
-yr.innerHTML+=yrs.map(y=>`<option>${y}</option>`).join('');
-pos.innerHTML+=poss.map(p=>`<option>${p}</option>`).join('');
-let sortK=9,asc=false,era="2026";
-const ERAS=[["2026","2026 class"],["2025","2025 class"],["recent","2020–24"],["classic","2000–19"],["","All"]];
-chips.innerHTML=ERAS.map(([v,l])=>`<button class="chip${v===era?' on':''}" data-v="${v}">${l}</button>`).join("");
-chips.onclick=e=>{const c=e.target.closest('.chip');if(!c)return;era=c.dataset.v;
- document.querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x.dataset.v===era));
- if(era==="2026"||era==="2025"){sortK=7;}else{sortK=9;} render();};
-function eraPass(r){if(era==="2026")return r[0]==2026;if(era==="2025")return r[0]==2025;
- if(era==="recent")return r[0]>=2020&&r[0]<=2024;if(era==="classic")return r[0]<=2019;return true;}
-function filt(){const s=q.value.toLowerCase();
- return D.filter(r=>eraPass(r)&&(!pos.value||r[3]==pos.value)&&
-  (!s||r[1].toLowerCase().includes(s)||String(r[4]).toLowerCase().includes(s)));}
-function render(){
- const nv=v=>v==null?-9:v; let rows=filt().sort((a,b)=>asc?nv(a[sortK])-nv(b[sortK]):nv(b[sortK])-nv(a[sortK]));
- if(sortK===1)rows=filt().sort((a,b)=>asc?a[1].localeCompare(b[1]):b[1].localeCompare(a[1]));
- nShown.textContent=rows.length;
- tb.innerHTML=rows.slice(0,400).map(r=>{
-  const pro=r[5]==null||r[6]==null, sv=r[9];
-  const svCell = (sv==null)?'<td class="pos">pre-draft</td>'
-   :`<td class="sv ${sv>=0?'up':'dn'}">${sv>=0?'+':''}${sv.toFixed(2)}<span class="bar" style="width:${Math.min(40,Math.abs(sv)*120)}px;background:${sv>=0?'var(--green)':'var(--red)'}"></span></td>`;
-  return `<tr><td>${r[0]}</td><td><span class="pl">${r[1]}</span> <span class="pos">${r[2]} · ${r[4]}</span>${pro?'<span class="tag">PROSPECT</span>':''}</td>
-  <td>${r[5]??'—'}</td><td>${r[6]??'—'}</td><td>${(r[7]??0).toFixed(2)}</td>${svCell}</tr>`}).join('');
- 
- hint.textContent = (era==="2026"||era==="2025")
-  ? "Pre-draft athletic grades — combine + pro-day testing only; no draft slot yet. Higher = better projected pro outcome."
-  : "Value vs pick = how a player performed (or projects) compared with what their draft slot usually returns. Green = outplayed the slot.";
- draw(rows.filter(r=>r[5]!=null&&r[6]!=null&&r[9]!=null));boardsFill();}
-document.querySelectorAll('th').forEach(h=>h.onclick=()=>{const k=+h.dataset.k;
- if(k===sortK)asc=!asc;else{sortK=k;asc=false}
- document.querySelectorAll('th').forEach(x=>x.classList.toggle('active',+x.dataset.k===k));render()});
-[q,yr,pos].forEach(e=>e.oninput=render);
-// scatter
-const cv=document.getElementById('cv'),ctx=cv.getContext('2d');let pts=[];
-function draw(rows){
- const W=cv.width=cv.clientWidth*2,H=cv.height=840;ctx.scale(1,1);
- ctx.clearRect(0,0,W,H);const padL=70,padB=60,padT=30,padR=30;
- const x=p=>padL+(p-1)/259*(W-padL-padR), yv=v=>H-padB-v*(H-padB-padT);
- ctx.strokeStyle='#26332e';ctx.beginPath();ctx.moveTo(padL,padT);ctx.lineTo(padL,H-padB);ctx.lineTo(W-padR,H-padB);ctx.stroke();
- ctx.fillStyle='#7d8f88';ctx.font='20px IBM Plex Mono';
- [1,32,64,128,192,256].forEach(p=>ctx.fillText(p,x(p)-10,H-padB+30));
- ctx.fillText('pick',W/2,H-12);ctx.save();ctx.translate(18,H/2);ctx.rotate(-Math.PI/2);ctx.fillText('class outcome pct',0,0);ctx.restore();
- // market curve = mean exp per pick bucket
- const buck={};rows.forEach(r=>{const b=Math.round(r[5]/8)*8;(buck[b]=buck[b]||[]).push(r[8])});
- ctx.strokeStyle='#f2b441';ctx.setLineDash([8,7]);ctx.lineWidth=3;ctx.beginPath();
- Object.keys(buck).map(Number).sort((a,b)=>a-b).forEach((b,i)=>{const m=buck[b].reduce((s,v)=>s+v,0)/buck[b].length;
-  i?ctx.lineTo(x(b),yv(m)):ctx.moveTo(x(b),yv(m))});ctx.stroke();ctx.setLineDash([]);
- pts=[];const sample=rows.length>1500?rows.filter((_,i)=>i%3==0):rows;
- sample.forEach(r=>{ const py=yv(Math.min(1,Math.max(0,rget(r)))), px=x(r[5]); const c=(rget(r)>r[8])?'#5fc88f':'#e0654f';
-  ctx.fillStyle=c;ctx.globalAlpha=.6;ctx.beginPath();ctx.arc(px,py,5,0,7);ctx.fill();ctx.globalAlpha=1;
-  pts.push({px:px/2,py:py/2,r});});
+:root{
+  color-scheme:dark;
+  --bg:#0f1318;
+  --surface:#151b22;
+  --surface-2:#1a222b;
+  --surface-3:#202a35;
+  --line:#2a3441;
+  --line-strong:#3b4a5b;
+  --ink:#ecf1f5;
+  --muted:#98a6b3;
+  --faint:#677684;
+  --cyan:#64c7d9;
+  --green:#68d391;
+  --amber:#f5bd4f;
+  --red:#ff6b6b;
+  --blue:#86a8ff;
+  --shadow:0 18px 60px rgba(0,0,0,.28);
 }
-function rget(r){return Math.min(1,(r[6]||0)/ (avMax[r[0]]||1));}
-const avMax={};D.forEach(r=>{avMax[r[0]]=Math.max(avMax[r[0]]||1,r[6]||0)});
-cv.onmousemove=e=>{const b=cv.getBoundingClientRect(),mx=e.clientX-b.left,my=e.clientY-b.top;
- const h=pts.find(p=>Math.hypot(p.px-mx,p.py-my)<7);
- if(h){tip.style.display='block';tip.style.left=e.clientX+14+'px';tip.style.top=e.clientY+10+'px';
-  tip.textContent=`${h.r[1]} · ${h.r[2]} ${h.r[0]} · pick ${h.r[5]} · AV ${h.r[6]}`;}else tip.style.display='none';};
-cv.onmouseleave=()=>tip.style.display='none';
-function boardsFill(){
- const f=filt();
- steals.innerHTML=f.filter(r=>r[9]!=null&&r[5]>=65).sort((a,b)=>b[9]-a[9]).slice(0,7)
-  .map(r=>`<li><span>${r[1]} <span class="pos">${r[2]} '${String(r[0]).slice(2)} · pk ${r[5]}</span></span><span class="up">+${r[9].toFixed(2)}</span></li>`).join('');
- busts.innerHTML=f.filter(r=>r[9]!=null&&r[5]<=32).sort((a,b)=>a[9]-b[9]).slice(0,7)
-  .map(r=>`<li><span>${r[1]} <span class="pos">${r[2]} '${String(r[0]).slice(2)} · pk ${r[5]}</span></span><span class="dn">${r[9].toFixed(2)}</span></li>`).join('');}
-render();addEventListener('resize',render);
-</script></body></html>
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input,select{font:inherit}
+button{cursor:pointer}
+.app-shell{width:min(1680px,100%);margin:0 auto;padding:18px clamp(16px,2vw,32px) 30px}
+.masthead{display:grid;grid-template-columns:minmax(320px,1fr) auto;gap:22px;align-items:end;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.eyebrow{color:var(--cyan);font:700 11px/1 "IBM Plex Mono",monospace;letter-spacing:.16em;text-transform:uppercase;margin-bottom:9px}
+h1{margin:0;font-size:clamp(32px,4vw,54px);line-height:.96;letter-spacing:0;font-weight:800}
+h1 span{color:var(--amber)}
+.subline{max-width:760px;margin-top:12px;color:var(--muted);font-size:14px}
+.kpi-strip{display:grid;grid-template-columns:repeat(3,minmax(132px,1fr));gap:10px;min-width:440px}
+.kpi{min-height:66px;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:11px 13px}
+.kpi b{display:block;color:var(--ink);font-size:24px;line-height:1;font-weight:800}
+.kpi small{display:block;margin-top:9px;color:var(--muted);font:600 11px/1.25 "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.08em}
+.control-band{margin-top:16px;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:12px;box-shadow:var(--shadow)}
+.control-grid{display:grid;grid-template-columns:minmax(230px,1.25fr) repeat(4,minmax(132px,.7fr));gap:10px}
+.field{min-width:0}
+.field label{display:block;margin:0 0 6px;color:var(--muted);font:700 10px/1 "IBM Plex Mono",monospace;letter-spacing:.12em;text-transform:uppercase}
+input,select{width:100%;height:42px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);color:var(--ink);padding:0 12px;outline:none}
+input::placeholder{color:var(--faint)}
+input:focus,select:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(100,199,217,.16)}
+.segmented{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.segmented button{height:36px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);color:var(--muted);padding:0 13px;font-weight:700}
+.segmented button[aria-pressed="true"]{background:rgba(100,199,217,.14);border-color:var(--cyan);color:var(--ink)}
+.summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:16px}
+.summary-card{min-width:0;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:12px 14px;min-height:78px}
+.summary-card span{display:block;color:var(--muted);font:700 10px/1 "IBM Plex Mono",monospace;letter-spacing:.12em;text-transform:uppercase}
+.summary-card b{display:block;margin-top:9px;font-size:25px;line-height:1;font-weight:800}
+.summary-card small{display:block;margin-top:6px;color:var(--faint);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.workspace{display:grid;grid-template-columns:minmax(620px,1.24fr) minmax(390px,.76fr);gap:16px;margin-top:16px;align-items:start}
+.panel{border:1px solid var(--line);border-radius:8px;background:var(--surface);box-shadow:var(--shadow);min-width:0}
+.panel-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.panel-title{margin:0;font-size:15px;font-weight:800;letter-spacing:0}
+.panel-note{color:var(--muted);font:12px "IBM Plex Mono",monospace;text-align:right}
+.table-wrap{height:min(720px,calc(100vh - 340px));min-height:460px;overflow:auto}
+table{width:100%;min-width:740px;border-collapse:separate;border-spacing:0;font:13px "IBM Plex Mono",monospace}
+th{position:sticky;top:0;z-index:2;background:var(--surface);color:var(--muted);text-align:left;font-size:10px;line-height:1;text-transform:uppercase;letter-spacing:.11em;padding:9px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 8px;border-bottom:1px solid rgba(42,52,65,.82);white-space:nowrap;vertical-align:middle}
+tbody tr{outline:none}
+tbody tr:hover td,tbody tr:focus td{background:rgba(100,199,217,.08)}
+tbody tr.selected td{background:rgba(245,189,79,.12);border-bottom-color:rgba(245,189,79,.22)}
+.player-cell{display:flex;align-items:center;gap:9px;min-width:210px}
+.avatar{width:30px;height:30px;display:inline-grid;place-items:center;border:1px solid var(--line-strong);border-radius:6px;background:var(--surface-3);color:var(--cyan);font:800 11px Inter}
+.player-name{display:block;color:#fff;font-weight:700;font-family:Inter,system-ui,sans-serif}
+.player-meta{display:block;margin-top:2px;color:var(--muted);font-size:11px}
+.num{text-align:right}
+.pill{display:inline-flex;align-items:center;justify-content:center;min-width:48px;height:24px;padding:0 7px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);font-weight:700}
+.pill.good{color:var(--green);border-color:rgba(104,211,145,.35);background:rgba(104,211,145,.08)}
+.pill.bad{color:var(--red);border-color:rgba(255,107,107,.36);background:rgba(255,107,107,.08)}
+.pill.neutral{color:var(--blue);border-color:rgba(134,168,255,.33);background:rgba(134,168,255,.08)}
+.insight-column{display:grid;gap:16px;min-width:0}
+.chart-panel{order:-1}
+.focus-body{padding:16px}
+.focus-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.focus-name{margin:0;font-size:24px;line-height:1.05;font-weight:800}
+.focus-meta{margin-top:6px;color:var(--muted);font-size:13px}
+.grade-lockup{text-align:right}
+.grade-lockup b{display:block;color:var(--amber);font-size:39px;line-height:.92}
+.grade-lockup span{display:block;margin-top:8px;color:var(--muted);font:700 10px/1 "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.11em}
+.badge-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.badge{display:inline-flex;align-items:center;height:28px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);padding:0 9px;color:var(--muted);font:700 11px "IBM Plex Mono",monospace}
+.score-stack{display:grid;gap:10px;margin-top:16px}
+.score-line{display:grid;grid-template-columns:98px 1fr 58px;gap:10px;align-items:center}
+.score-line label{color:var(--muted);font:700 10px/1 "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.09em}
+.track{position:relative;height:9px;border-radius:999px;background:var(--surface-3);overflow:hidden}
+.track span{position:absolute;inset:0 auto 0 0;width:0;border-radius:inherit;background:var(--cyan)}
+.score-line strong{text-align:right;font:700 12px "IBM Plex Mono",monospace}
+.chart-wrap{padding:12px 14px 15px}
+canvas{display:block;width:100%;height:360px;border:1px solid var(--line);border-radius:8px;background:#101820}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:10px;color:var(--muted);font:12px "IBM Plex Mono",monospace}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.leaderboards{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.board{border:1px solid var(--line);border-radius:8px;background:var(--surface);box-shadow:var(--shadow)}
+.board h3{margin:0;padding:13px 14px;border-bottom:1px solid var(--line);font-size:14px}
+.board ol{list-style:none;margin:0;padding:4px 0}
+.board li{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:10px 14px;border-bottom:1px solid rgba(42,52,65,.75);font:12px "IBM Plex Mono",monospace}
+.board li:last-child{border-bottom:0}
+.board-name{color:var(--ink);font-weight:700;font-family:Inter,system-ui,sans-serif}
+.board-meta{display:block;margin-top:2px;color:var(--muted)}
+footer{margin-top:16px;padding:14px 2px 0;color:var(--faint);font:12px "IBM Plex Mono",monospace}
+.tip{position:fixed;z-index:10;display:none;pointer-events:none;max-width:280px;border:1px solid var(--line-strong);border-radius:8px;background:#0b1117;color:var(--ink);padding:9px 10px;box-shadow:var(--shadow);font:12px "IBM Plex Mono",monospace}
+.empty{padding:22px 16px;color:var(--muted);font:13px "IBM Plex Mono",monospace}
+@media(max-width:1180px){
+  .masthead{grid-template-columns:1fr}
+  .kpi-strip{min-width:0}
+  .workspace{grid-template-columns:1fr}
+  .table-wrap{height:560px}
+}
+@media(max-width:760px){
+  .app-shell{padding:18px 12px 24px}
+  .control-grid{grid-template-columns:1fr 1fr}
+  .field:first-child{grid-column:1/-1}
+  .summary-grid{grid-template-columns:1fr 1fr}
+  .kpi-strip{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .kpi{min-height:56px;padding:9px 8px}
+  .kpi b{font-size:20px}
+  .kpi small{margin-top:6px;font-size:9px;line-height:1.15}
+  .segmented{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;overflow:visible;padding-bottom:0}
+  .segmented button{width:100%;padding:0 8px}
+  .panel-heading,.focus-top{align-items:flex-start;flex-direction:column}
+  .grade-lockup{text-align:left}
+  .leaderboards{grid-template-columns:1fr}
+  canvas{height:310px}
+}
+@media(max-width:520px){
+  .control-grid{grid-template-columns:1fr 1fr}
+  .summary-grid{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <header class="masthead">
+    <div>
+      <div class="eyebrow">NFL draft model</div>
+      <h1>APEX <span>Draft Board</span></h1>
+      <div class="subline">Two-stage residual board using pick-market baselines, positional curves, combine signals, and Career AV percentile outcomes.</div>
+    </div>
+    <div class="kpi-strip" aria-label="Model benchmarks">
+      <div class="kpi"><b>0.630</b><small>Holdout Spearman rho</small></div>
+      <div class="kpi"><b>0.619</b><small>Pick-only baseline</small></div>
+      <div class="kpi"><b id="playersShown">0</b><small>Filtered players</small></div>
+    </div>
+  </header>
+
+  <section class="control-band" aria-label="Draft board filters">
+    <div class="control-grid">
+      <div class="field">
+        <label for="searchBox">Search</label>
+        <input id="searchBox" type="search" autocomplete="off" placeholder="Player or college">
+      </div>
+      <div class="field">
+        <label for="yearFilter">Year</label>
+        <select id="yearFilter"></select>
+      </div>
+      <div class="field">
+        <label for="positionFilter">Position</label>
+        <select id="positionFilter"></select>
+      </div>
+      <div class="field">
+        <label for="roundFilter">Round</label>
+        <select id="roundFilter">
+          <option value="all">All rounds</option>
+          <option value="1">Round 1</option>
+          <option value="2-3">Rounds 2-3</option>
+          <option value="4-7">Rounds 4-7</option>
+          <option value="top100">Top 100</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="sortFilter">Sort</label>
+        <select id="sortFilter">
+          <option value="edge_desc">APEX edge</option>
+          <option value="apex_desc">APEX grade</option>
+          <option value="actual_delta_desc">Actual vs market</option>
+          <option value="actual_desc">Career outcome</option>
+          <option value="pick_asc">Draft slot</option>
+          <option value="year_desc">Newest class</option>
+          <option value="player_asc">Player A-Z</option>
+        </select>
+      </div>
+    </div>
+    <div class="segmented" id="modeGroup" aria-label="Board view">
+      <button type="button" data-mode="all" aria-pressed="true">All</button>
+      <button type="button" data-mode="model_edge" aria-pressed="false">APEX edge</button>
+      <button type="button" data-mode="model_fade" aria-pressed="false">APEX fade</button>
+      <button type="button" data-mode="actual_hits" aria-pressed="false">Actual hits</button>
+      <button type="button" data-mode="actual_misses" aria-pressed="false">Actual misses</button>
+    </div>
+  </section>
+
+  <section class="summary-grid" aria-label="Filtered summary">
+    <div class="summary-card"><span>Average APEX</span><b id="avgApex">0.0</b><small id="avgApexNote">percentile grade</small></div>
+    <div class="summary-card"><span>Average Edge</span><b id="avgEdge">+0.0</b><small>APEX minus pick market</small></div>
+    <div class="summary-card"><span>Actual Delta</span><b id="avgActualDelta">+0.0</b><small>Career outcome minus market</small></div>
+    <div class="summary-card"><span>Top Fit</span><b id="topFit">-</b><small id="topFitNote">current filters</small></div>
+  </section>
+
+  <main class="workspace">
+    <section class="panel table-panel" aria-labelledby="tableTitle">
+      <div class="panel-heading">
+        <div>
+          <h2 class="panel-title" id="tableTitle">Player board</h2>
+          <div class="panel-note" id="tableNote">0 rows</div>
+        </div>
+        <div class="panel-note" id="activeView">All classes</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th class="num">Year</th>
+              <th class="num">Pick</th>
+              <th class="num">Rnd</th>
+              <th class="num">APEX</th>
+              <th class="num">Market</th>
+              <th class="num">Edge</th>
+              <th class="num">Actual</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <aside class="insight-column">
+      <section class="panel focus-panel" aria-labelledby="focusTitle">
+        <div class="panel-heading">
+          <h2 class="panel-title" id="focusTitle">Player profile</h2>
+          <div class="panel-note" id="focusNote">Selected row</div>
+        </div>
+        <div class="focus-body" id="focusBody"></div>
+      </section>
+
+      <section class="panel chart-panel" aria-labelledby="chartTitle">
+        <div class="panel-heading">
+          <h2 class="panel-title" id="chartTitle">Pick-to-outcome map</h2>
+          <div class="panel-note">Career percentile</div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="marketChart" aria-label="Draft pick versus career outcome chart"></canvas>
+          <div class="legend">
+            <span><i class="dot" style="background:var(--green)"></i>actual beat market</span>
+            <span><i class="dot" style="background:var(--red)"></i>actual below market</span>
+            <span><i style="display:inline-block;width:24px;border-top:2px dashed var(--amber);vertical-align:4px;margin-right:6px"></i>expected pick curve</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="leaderboards" aria-label="Leaderboards">
+        <div class="board">
+          <h3>APEX bargains</h3>
+          <ol id="modelBoard"></ol>
+        </div>
+        <div class="board">
+          <h3>Actual market wins</h3>
+          <ol id="actualBoard"></ol>
+        </div>
+      </section>
+    </aside>
+  </main>
+
+  <footer>APEX v1.1 | target: within-class Career AV percentile | validation: 2012-2014 out-of-time holdout | data: public Pro-Football-Reference draft history.</footer>
+</div>
+<div class="tip" id="tooltip"></div>
+
+<script>
+const D=__DATA__;
+const I={year:0,player:1,pos:2,group:3,college:4,pick:5,round:6,carAV:7,actual:8,apex:9,market:10,resid:11,edge:12};
+const els={
+  search:document.getElementById("searchBox"),
+  year:document.getElementById("yearFilter"),
+  pos:document.getElementById("positionFilter"),
+  round:document.getElementById("roundFilter"),
+  sort:document.getElementById("sortFilter"),
+  mode:document.getElementById("modeGroup"),
+  playersShown:document.getElementById("playersShown"),
+  avgApex:document.getElementById("avgApex"),
+  avgApexNote:document.getElementById("avgApexNote"),
+  avgEdge:document.getElementById("avgEdge"),
+  avgActualDelta:document.getElementById("avgActualDelta"),
+  topFit:document.getElementById("topFit"),
+  topFitNote:document.getElementById("topFitNote"),
+  tableBody:document.getElementById("tableBody"),
+  tableNote:document.getElementById("tableNote"),
+  activeView:document.getElementById("activeView"),
+  focusBody:document.getElementById("focusBody"),
+  focusNote:document.getElementById("focusNote"),
+  modelBoard:document.getElementById("modelBoard"),
+  actualBoard:document.getElementById("actualBoard"),
+  chart:document.getElementById("marketChart"),
+  tooltip:document.getElementById("tooltip")
+};
+const rows=D.map((r,id)=>({
+  id,
+  year:num(r[I.year]),
+  player:String(r[I.player]||"Unknown"),
+  pos:String(r[I.pos]||""),
+  group:String(r[I.group]||"OTH"),
+  college:String(r[I.college]||"Unknown"),
+  pick:num(r[I.pick]),
+  round:num(r[I.round]),
+  carAV:num(r[I.carAV]),
+  actual:num(r[I.actual]),
+  apex:num(r[I.apex]),
+  market:num(r[I.market]),
+  resid:num(r[I.resid]),
+  edge:num(r[I.edge])
+}));
+let state={mode:"all",selectedId:null,hoverId:null};
+let plotted=[];
+
+function num(v){return v===null||v===undefined||v===""?null:Number(v)}
+function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
+function pct(v){return v===null||Number.isNaN(v)?"-":(v*100).toFixed(1)}
+function signed(v){if(v===null||Number.isNaN(v))return "-";const x=v*100;return (x>=0?"+":"")+x.toFixed(1)}
+function intish(v){return v===null||Number.isNaN(v)?"-":String(Math.round(v))}
+function avg(list,key){const vals=list.map(r=>r[key]).filter(v=>v!==null&&!Number.isNaN(v));return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null}
+function actualDelta(r){return r.actual===null||r.market===null?null:r.actual-r.market}
+function initials(row){return row.player.split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join("").toUpperCase()}
+function edgeClass(v){return v===null?"neutral":v>=.025?"good":v<=-.025?"bad":"neutral"}
+function barWidth(v){return Math.max(0,Math.min(100,(v||0)*100))}
+
+function setupFilters(){
+  const years=[...new Set(rows.map(r=>r.year))].sort((a,b)=>b-a);
+  const groups=[...new Set(rows.map(r=>r.group))].sort();
+  els.year.innerHTML=`<option value="all">All years</option>`+years.map(y=>`<option value="${y}">${y}</option>`).join("");
+  els.pos.innerHTML=`<option value="all">All positions</option>`+groups.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join("");
+}
+
+function passes(row){
+  const q=els.search.value.trim().toLowerCase();
+  if(q && !`${row.player} ${row.college} ${row.pos} ${row.group} ${row.year}`.toLowerCase().includes(q))return false;
+  if(els.year.value!=="all" && row.year!==Number(els.year.value))return false;
+  if(els.pos.value!=="all" && row.group!==els.pos.value)return false;
+  if(!roundPass(row))return false;
+  const delta=actualDelta(row);
+  if(state.mode==="model_edge" && !(row.edge>=.05))return false;
+  if(state.mode==="model_fade" && !(row.edge<=-.05))return false;
+  if(state.mode==="actual_hits" && !(delta>=.20))return false;
+  if(state.mode==="actual_misses" && !(delta<=-.20))return false;
+  return true;
+}
+function roundPass(row){
+  const v=els.round.value;
+  if(v==="all")return true;
+  if(v==="1")return row.round===1;
+  if(v==="2-3")return row.round>=2&&row.round<=3;
+  if(v==="4-7")return row.round>=4&&row.round<=7;
+  if(v==="top100")return row.pick!==null&&row.pick<=100;
+  return true;
+}
+function sorter(a,b){
+  const high=(v)=>v===null||Number.isNaN(v)?-Infinity:v;
+  const low=(v)=>v===null||Number.isNaN(v)?Infinity:v;
+  switch(els.sort.value){
+    case "apex_desc":return high(b.apex)-high(a.apex)||high(b.edge)-high(a.edge);
+    case "actual_delta_desc":return high(actualDelta(b))-high(actualDelta(a));
+    case "actual_desc":return high(b.actual)-high(a.actual);
+    case "pick_asc":return low(a.pick)-low(b.pick)||a.year-b.year;
+    case "year_desc":return b.year-a.year||low(a.pick)-low(b.pick);
+    case "player_asc":return a.player.localeCompare(b.player);
+    default:return high(b.edge)-high(a.edge)||high(b.apex)-high(a.apex);
+  }
+}
+
+function render(){
+  const filtered=rows.filter(passes).sort(sorter);
+  if(!filtered.length){
+    state.selectedId=null;
+  }else if(!filtered.some(r=>r.id===state.selectedId)){
+    state.selectedId=filtered[0].id;
+  }
+  els.playersShown.textContent=filtered.length.toLocaleString();
+  renderSummary(filtered);
+  renderTable(filtered);
+  const selected=rows.find(r=>r.id===state.selectedId)||filtered[0]||null;
+  renderFocus(selected);
+  renderBoards(filtered);
+  drawChart(filtered,selected);
+}
+
+function renderSummary(filtered){
+  const aa=avg(filtered,"apex"), ae=avg(filtered,"edge");
+  const deltas=filtered.map(actualDelta).filter(v=>v!==null);
+  const ad=deltas.length?deltas.reduce((a,b)=>a+b,0)/deltas.length:null;
+  const top=filtered[0];
+  els.avgApex.textContent=pct(aa);
+  els.avgEdge.textContent=signed(ae);
+  els.avgActualDelta.textContent=signed(ad);
+  els.avgApexNote.textContent=`${filtered.length.toLocaleString()} player sample`;
+  els.topFit.textContent=top?top.player.split(" ").slice(-1)[0]:"-";
+  els.topFitNote.textContent=top?`${top.player} | ${top.group} | ${top.year}`:"current filters";
+  els.activeView.textContent=viewLabel();
+}
+function viewLabel(){
+  const parts=[];
+  if(els.year.value!=="all")parts.push(els.year.value);
+  if(els.pos.value!=="all")parts.push(els.pos.value);
+  if(els.round.value!=="all")parts.push(els.round.options[els.round.selectedIndex].text);
+  const mode=els.mode.querySelector(`[data-mode="${state.mode}"]`);
+  if(mode&&state.mode!=="all")parts.push(mode.textContent);
+  return parts.length?parts.join(" / "):"All classes";
+}
+
+function renderTable(filtered){
+  const limit=650;
+  const view=filtered.slice(0,limit);
+  els.tableNote.textContent=filtered.length>limit?`Showing ${limit.toLocaleString()} of ${filtered.length.toLocaleString()} rows`:`${filtered.length.toLocaleString()} rows`;
+  if(!view.length){
+    els.tableBody.innerHTML=`<tr><td colspan="8"><div class="empty">No players match the current filters.</div></td></tr>`;
+    return;
+  }
+  els.tableBody.innerHTML=view.map(row=>{
+    const ed=edgeClass(row.edge);
+    const delta=actualDelta(row);
+    return `<tr data-id="${row.id}" tabindex="0" class="${row.id===state.selectedId?"selected":""}">
+      <td><div class="player-cell"><span class="avatar">${esc(initials(row))}</span><span><span class="player-name">${esc(row.player)}</span><span class="player-meta">${esc(row.pos)} / ${esc(row.group)} / ${esc(row.college)}</span></span></div></td>
+      <td class="num">${row.year}</td>
+      <td class="num">${intish(row.pick)}</td>
+      <td class="num">${intish(row.round)}</td>
+      <td class="num">${pct(row.apex)}</td>
+      <td class="num">${pct(row.market)}</td>
+      <td class="num"><span class="pill ${ed}">${signed(row.edge)}</span></td>
+      <td class="num"><span class="pill ${edgeClass(delta)}">${pct(row.actual)}</span></td>
+    </tr>`;
+  }).join("");
+}
+
+function renderFocus(row){
+  if(!row){
+    els.focusBody.innerHTML=`<div class="empty">No player selected.</div>`;
+    els.focusNote.textContent="Selected row";
+    return;
+  }
+  els.focusNote.textContent=`${row.year} class`;
+  const delta=actualDelta(row);
+  els.focusBody.innerHTML=`
+    <div class="focus-top">
+      <div>
+        <h3 class="focus-name">${esc(row.player)}</h3>
+        <div class="focus-meta">${esc(row.pos)} / ${esc(row.group)} / ${esc(row.college)}</div>
+      </div>
+      <div class="grade-lockup"><b>${pct(row.apex)}</b><span>APEX grade</span></div>
+    </div>
+    <div class="badge-row">
+      <span class="badge">Year ${row.year}</span>
+      <span class="badge">Pick ${intish(row.pick)}</span>
+      <span class="badge">Round ${intish(row.round)}</span>
+      <span class="badge">CarAV ${intish(row.carAV)}</span>
+    </div>
+    <div class="score-stack">
+      ${scoreLine("APEX",row.apex,"var(--cyan)")}
+      ${scoreLine("Market",row.market,"var(--amber)")}
+      ${scoreLine("Actual",row.actual,"var(--green)")}
+      ${scoreLine("Edge",Math.max(0,Math.min(1,.5+(row.edge||0))),row.edge>=0?"var(--green)":"var(--red)",signed(row.edge))}
+      ${scoreLine("Actual +/-",Math.max(0,Math.min(1,.5+(delta||0))),delta>=0?"var(--green)":"var(--red)",signed(delta))}
+    </div>`;
+}
+function scoreLine(label,value,color,display){
+  const shown=display||pct(value);
+  return `<div class="score-line"><label>${label}</label><div class="track"><span style="width:${barWidth(value)}%;background:${color}"></span></div><strong>${shown}</strong></div>`;
+}
+
+function renderBoards(filtered){
+  const model=[...filtered].filter(r=>r.edge!==null).sort((a,b)=>b.edge-a.edge).slice(0,6);
+  const actual=[...filtered].filter(r=>actualDelta(r)!==null).sort((a,b)=>actualDelta(b)-actualDelta(a)).slice(0,6);
+  els.modelBoard.innerHTML=model.length?model.map(r=>boardItem(r,signed(r.edge))).join(""):`<li><span class="board-meta">No matches</span><span></span></li>`;
+  els.actualBoard.innerHTML=actual.length?actual.map(r=>boardItem(r,signed(actualDelta(r)))).join(""):`<li><span class="board-meta">No matches</span><span></span></li>`;
+}
+function boardItem(row,value){
+  return `<li data-id="${row.id}"><span><span class="board-name">${esc(row.player)}</span><span class="board-meta">${esc(row.group)} / ${row.year} / pick ${intish(row.pick)}</span></span><span class="pill ${edgeClass(Number(value)/100)}">${value}</span></li>`;
+}
+
+function drawChart(filtered,selected){
+  const canvas=els.chart;
+  const rect=canvas.getBoundingClientRect();
+  const dpr=window.devicePixelRatio||1;
+  canvas.width=Math.max(1,Math.floor(rect.width*dpr));
+  canvas.height=Math.max(1,Math.floor(rect.height*dpr));
+  const ctx=canvas.getContext("2d");
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const W=rect.width,H=rect.height;
+  const pad={l:48,r:18,t:22,b:42};
+  const chartRows=filtered.filter(r=>r.pick!==null&&r.actual!==null&&r.market!==null);
+  plotted=[];
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle="#101820";
+  ctx.fillRect(0,0,W,H);
+  const x=(pick)=>pad.l+((pick-1)/261)*(W-pad.l-pad.r);
+  const y=(v)=>pad.t+(1-v)*(H-pad.t-pad.b);
+  ctx.strokeStyle="rgba(152,166,179,.22)";
+  ctx.lineWidth=1;
+  ctx.font="11px IBM Plex Mono";
+  ctx.fillStyle="#98a6b3";
+  [0,.25,.5,.75,1].forEach(v=>{
+    const yy=y(v);
+    ctx.beginPath();ctx.moveTo(pad.l,yy);ctx.lineTo(W-pad.r,yy);ctx.stroke();
+    ctx.fillText(String(Math.round(v*100)),8,yy+4);
+  });
+  [1,32,64,128,192,262].forEach(p=>{
+    const xx=x(p);
+    ctx.beginPath();ctx.moveTo(xx,pad.t);ctx.lineTo(xx,H-pad.b);ctx.stroke();
+    ctx.fillText(String(p),xx-9,H-16);
+  });
+  ctx.fillText("pick",W/2-12,H-6);
+  ctx.save();ctx.translate(13,H/2+36);ctx.rotate(-Math.PI/2);ctx.fillText("career percentile",0,0);ctx.restore();
+
+  const buckets=new Map();
+  chartRows.forEach(r=>{
+    const b=Math.max(1,Math.min(262,Math.round(r.pick/6)*6));
+    if(!buckets.has(b))buckets.set(b,[]);
+    buckets.get(b).push(r.market);
+  });
+  ctx.strokeStyle="#f5bd4f";
+  ctx.setLineDash([7,6]);
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  [...buckets.entries()].sort((a,b)=>a[0]-b[0]).forEach(([pick,vals],idx)=>{
+    const m=vals.reduce((s,v)=>s+v,0)/vals.length;
+    idx?ctx.lineTo(x(pick),y(m)):ctx.moveTo(x(pick),y(m));
+  });
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  let sample=chartRows.length>2600?chartRows.filter((_,i)=>i%2===0):chartRows;
+  if(selected&&chartRows.some(r=>r.id===selected.id)&&!sample.some(r=>r.id===selected.id)){
+    sample=sample.concat(selected);
+  }
+  sample.forEach(r=>{
+    const delta=actualDelta(r);
+    const px=x(r.pick),py=y(Math.max(0,Math.min(1,r.actual)));
+    const selectedPoint=selected&&selected.id===r.id;
+    ctx.globalAlpha=selectedPoint?1:.62;
+    ctx.fillStyle=delta>=0?"#68d391":"#ff6b6b";
+    ctx.beginPath();ctx.arc(px,py,selectedPoint?5.8:3.2,0,Math.PI*2);ctx.fill();
+    if(selectedPoint){
+      ctx.strokeStyle="#ecf1f5";ctx.lineWidth=2;ctx.beginPath();ctx.arc(px,py,8.5,0,Math.PI*2);ctx.stroke();
+    }
+    plotted.push({x:px,y:py,row:r});
+  });
+  ctx.globalAlpha=1;
+}
+
+function selectById(id){
+  state.selectedId=id;
+  render();
+}
+function nearestPoint(event){
+  const rect=els.chart.getBoundingClientRect();
+  const mx=event.clientX-rect.left,my=event.clientY-rect.top;
+  let best=null,bestD=Infinity;
+  plotted.forEach(p=>{
+    const d=Math.hypot(p.x-mx,p.y-my);
+    if(d<bestD){best=p;bestD=d}
+  });
+  return bestD<=12?best:null;
+}
+
+els.tableBody.addEventListener("click",e=>{
+  const tr=e.target.closest("tr[data-id]");
+  if(tr)selectById(Number(tr.dataset.id));
+});
+els.tableBody.addEventListener("keydown",e=>{
+  if(e.key==="Enter"||e.key===" "){
+    const tr=e.target.closest("tr[data-id]");
+    if(tr){e.preventDefault();selectById(Number(tr.dataset.id));}
+  }
+});
+els.modelBoard.addEventListener("click",e=>{
+  const li=e.target.closest("li[data-id]");
+  if(li)selectById(Number(li.dataset.id));
+});
+els.actualBoard.addEventListener("click",e=>{
+  const li=e.target.closest("li[data-id]");
+  if(li)selectById(Number(li.dataset.id));
+});
+els.mode.addEventListener("click",e=>{
+  const btn=e.target.closest("button[data-mode]");
+  if(!btn)return;
+  state.mode=btn.dataset.mode;
+  els.mode.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",String(b===btn)));
+  render();
+});
+[els.search,els.year,els.pos,els.round,els.sort].forEach(el=>el.addEventListener(el===els.search?"input":"change",render));
+els.chart.addEventListener("pointermove",e=>{
+  const hit=nearestPoint(e);
+  if(!hit){els.tooltip.style.display="none";return}
+  els.tooltip.style.display="block";
+  els.tooltip.style.left=`${e.clientX+14}px`;
+  els.tooltip.style.top=`${e.clientY+12}px`;
+  els.tooltip.innerHTML=`<strong>${esc(hit.row.player)}</strong><br>${esc(hit.row.group)} / ${hit.row.year} / pick ${intish(hit.row.pick)}<br>Actual ${pct(hit.row.actual)} | Market ${pct(hit.row.market)}`;
+});
+els.chart.addEventListener("pointerleave",()=>{els.tooltip.style.display="none"});
+els.chart.addEventListener("click",e=>{
+  const hit=nearestPoint(e);
+  if(hit)selectById(hit.row.id);
+});
+let resizeTimer;
+addEventListener("resize",()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(render,120)});
+
+setupFilters();
+render();
+</script>
+</body>
+</html>

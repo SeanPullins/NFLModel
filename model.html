@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>How APEX Works &middot; APEX Draft Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0e1116;--surface:#151b24;--raised:#1b2230;--line:rgba(231,237,246,.08);
+  --ink:#e9edf3;--dim:#8d97a8;--faint:#5d6675;
+  --amber:#e8a33d;--amber-soft:rgba(232,163,61,.14);
+  --blue:#5b8def;--blue-soft:rgba(91,141,239,.14);
+  --green:#3fb97c;--green-soft:rgba(63,185,124,.14);
+  --red:#e25c5c;--red-soft:rgba(226,92,92,.14);
+  --violet:#9d7bea;--violet-soft:rgba(157,123,234,.16);
+  --disp:"Barlow Condensed",sans-serif;--body:"Inter",sans-serif;--mono:"IBM Plex Mono",monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 var(--body);-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;background:
+  radial-gradient(1100px 500px at 85% -10%,rgba(232,163,61,.07),transparent 60%),
+  radial-gradient(900px 480px at -10% 0%,rgba(91,141,239,.06),transparent 55%)}
+a{color:var(--amber);text-decoration:none}
+a:hover{text-decoration:underline}
+.app-shell{position:relative;max-width:1440px;margin:0 auto;padding:26px 26px 60px}
+.masthead{display:flex;flex-wrap:wrap;gap:18px;justify-content:space-between;align-items:flex-end;margin-bottom:20px}
+.eyebrow{font:600 12px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--amber)}
+h1{font:700 52px/0.95 var(--disp);text-transform:uppercase;letter-spacing:.01em;margin:8px 0 6px}
+h1 span{color:var(--dim);font-weight:500}
+.subline{color:var(--dim);max-width:640px}
+.subline a{white-space:nowrap}
+.kpi-strip{display:flex;gap:10px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 16px;min-width:118px}
+.kpi b{display:block;font:600 24px/1 var(--mono);color:var(--ink)}
+.kpi b.up{color:var(--green)}
+.kpi small{display:block;margin-top:6px;color:var(--faint);font-size:11px;letter-spacing:.04em;text-transform:uppercase}
+.kpi small em{font-style:normal;color:var(--dim)}
+
+.control-band{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:12px;margin-bottom:14px}
+.control-grid{display:grid;grid-template-columns:1.4fr repeat(4,1fr);gap:10px}
+.field label{display:block;font:600 10px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin-bottom:6px}
+.field input,.field select{width:100%;background:var(--raised);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:9px 10px;font:13px var(--body)}
+.field input:focus,.field select:focus,button:focus-visible{outline:2px solid var(--amber);outline-offset:1px}
+.chip-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip-row .label{font:600 10px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin-right:2px}
+.chip{background:var(--raised);border:1px solid var(--line);color:var(--dim);border-radius:999px;padding:6px 14px;font:600 12px var(--body);cursor:pointer;transition:.15s}
+.chip:hover{color:var(--ink);border-color:var(--faint)}
+.chip[aria-pressed="true"]{background:var(--amber-soft);border-color:var(--amber);color:var(--amber)}
+.chip.prospect[aria-pressed="true"]{background:var(--violet-soft);border-color:var(--violet);color:var(--violet)}
+.segmented{display:flex;flex-wrap:wrap;gap:6px}
+.segmented button{background:transparent;border:1px solid var(--line);color:var(--dim);border-radius:8px;padding:7px 12px;font:600 12px var(--body);cursor:pointer}
+.segmented button[aria-pressed="true"]{background:var(--raised);color:var(--ink);border-color:var(--faint)}
+
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.summary-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.summary-card span{font:600 10px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+.summary-card b{display:block;font:600 22px/1.2 var(--mono);margin:6px 0 2px}
+.summary-card small{color:var(--dim);font-size:11px}
+
+.workspace{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(380px,.95fr);gap:14px;align-items:start}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.panel-heading{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:14px 16px 10px}
+.panel-title{font:600 20px/1 var(--disp);text-transform:uppercase;letter-spacing:.05em;margin:0}
+.panel-note{color:var(--faint);font-size:11.5px}
+.table-wrap{max-height:980px;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+thead th{position:sticky;top:0;background:var(--surface);z-index:2;text-align:left;font:600 10px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--faint);padding:8px 10px;border-bottom:1px solid var(--line)}
+th.num,td.num{text-align:right;font-family:var(--mono)}
+tbody td{padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:rgba(255,255,255,.03)}
+tbody tr.selected{background:var(--amber-soft)}
+.pname{font-weight:600}
+.psub{color:var(--faint);font-size:10.5px;margin-top:1px}
+.tdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px}
+.pos-badge{display:inline-block;font:600 10px var(--mono);color:var(--dim);background:var(--raised);border-radius:5px;padding:2px 6px;margin-left:6px;vertical-align:1px}
+.flag{display:inline-block;font:600 9px/1 var(--mono);letter-spacing:.08em;border-radius:4px;padding:3px 6px;text-transform:uppercase}
+.flag.watch{color:var(--violet);background:var(--violet-soft)}
+.flag.early{color:var(--blue);background:var(--blue-soft)}
+.good{color:var(--green)}.bad{color:var(--red)}.neutral{color:var(--dim)}
+
+.insight-column{display:flex;flex-direction:column;gap:14px}
+.focus-body{padding:4px 16px 18px}
+.focus-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px}
+.focus-name{font:700 30px/1 var(--disp);text-transform:uppercase;letter-spacing:.02em}
+.focus-meta{color:var(--dim);font-size:12px;margin-top:5px}
+.pick-chip{font:600 12px var(--mono);background:var(--raised);border:1px solid var(--line);border-radius:8px;padding:7px 10px;text-align:right;white-space:nowrap}
+.pick-chip small{display:block;color:var(--faint);font-size:9px;letter-spacing:.1em;text-transform:uppercase;margin-top:2px}
+.proj-headline{display:flex;align-items:baseline;gap:10px;margin:14px 0 4px}
+.proj-headline b{font:600 34px/1 var(--mono);color:var(--amber)}
+.proj-headline .tierword{font:600 16px/1.2 var(--disp);text-transform:uppercase;letter-spacing:.08em}
+
+.ribbon{position:relative;height:54px;margin:10px 0 2px}
+.ribbon .track{position:absolute;left:0;right:0;top:24px;height:6px;border-radius:3px;background:linear-gradient(90deg,rgba(226,92,92,.35),rgba(141,151,168,.3) 45%,rgba(63,185,124,.4))}
+.ribbon .span{position:absolute;top:23px;height:8px;border-radius:4px}
+.ribbon .pin{position:absolute;top:18px;width:2px;height:18px;background:var(--blue)}
+.ribbon .pin::after{content:"MKT";position:absolute;top:20px;left:-10px;font:600 8.5px var(--mono);color:var(--blue);letter-spacing:.06em}
+.ribbon .diamond{position:absolute;top:21px;width:12px;height:12px;background:var(--amber);transform:rotate(45deg);border:2px solid var(--bg);box-shadow:0 0 0 1.5px var(--amber)}
+.ribbon .diamond::after{content:"APEX+";position:absolute;top:-18px;left:-9px;transform:rotate(-45deg);font:600 8.5px var(--mono);color:var(--amber);letter-spacing:.04em}
+.ribbon .scale{position:absolute;top:38px;left:0;right:0;display:flex;justify-content:space-between;font:500 9px var(--mono);color:var(--faint)}
+.ribbon .actual-pin{position:absolute;top:16px;width:2px;height:22px;background:var(--ink)}
+.ribbon .actual-pin::after{content:"ACTUAL";position:absolute;top:-12px;left:-16px;font:600 8.5px var(--mono);color:var(--ink);letter-spacing:.05em}
+
+.prob-bar{display:flex;height:14px;border-radius:7px;overflow:hidden;margin:14px 0 8px;border:1px solid var(--line)}
+.prob-bar i{display:block;height:100%}
+.prob-legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11px;color:var(--dim)}
+.prob-legend b{font-family:var(--mono);color:var(--ink);font-weight:600}
+.section-label{font:600 10px/1 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--faint);margin:18px 0 8px;display:flex;align-items:center;gap:8px}
+.section-label::after{content:"";flex:1;height:1px;background:var(--line)}
+.why p{margin:0 0 8px;color:var(--dim);font-size:12.5px}
+.why b{color:var(--ink);font-family:var(--mono);font-weight:600}
+.notebox{border-left:3px solid var(--violet);background:var(--violet-soft);border-radius:0 8px 8px 0;padding:9px 12px;font-size:12px;color:var(--dim);margin-top:10px}
+.notebox.early{border-color:var(--blue);background:var(--blue-soft)}
+.notebox b{color:var(--ink)}
+.comps li{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+.comps li:last-child{border-bottom:0}
+.comps{list-style:none;margin:0;padding:0}
+.comps .cmeta{color:var(--faint);font-size:10.5px;margin-top:1px}
+.comps .cout{font-family:var(--mono);font-size:12px;text-align:right;white-space:nowrap}
+.comps-summary{margin-top:8px;font-size:12px;color:var(--dim)}
+.comps-summary b{color:var(--ink)}
+.chart-wrap{padding:6px 14px 14px}
+canvas{width:100%;height:260px;display:block}
+.legend{display:flex;gap:14px;margin-top:8px;font-size:11px;color:var(--dim);flex-wrap:wrap}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+.leaderboards{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.board{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.board h3{font:600 16px/1 var(--disp);text-transform:uppercase;letter-spacing:.06em;margin:0 0 10px}
+.board ol{margin:0;padding-left:18px;font-size:12px;color:var(--dim)}
+.board li{padding:4px 0;cursor:pointer}
+.board li:hover{color:var(--ink)}
+.board b{color:var(--ink);font-weight:600}
+.board span{font-family:var(--mono)}
+.tooltip{position:fixed;pointer-events:none;background:var(--raised);border:1px solid var(--faint);border-radius:8px;padding:8px 10px;font-size:11.5px;z-index:50;display:none;max-width:230px}
+footer{margin-top:26px;color:var(--faint);font-size:11px;line-height:1.7}
+.empty{padding:20px 0;color:var(--faint);font-size:12.5px}
+
+/* model page */
+.doc{max-width:880px;margin:0 auto}
+.doc h2{font:600 30px/1.05 var(--disp);text-transform:uppercase;letter-spacing:.04em;margin:42px 0 12px}
+.doc h2 .idx{color:var(--amber);font-family:var(--mono);font-size:16px;vertical-align:8px;margin-right:8px}
+.doc p,.doc li{color:var(--dim);font-size:14.5px;line-height:1.75}
+.doc p b,.doc li b{color:var(--ink)}
+.doc .lede{font-size:17px;color:var(--ink);line-height:1.7}
+.doc table{font-size:13px;margin:14px 0}
+.doc tbody td{white-space:normal}
+.doc .figure{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;margin:18px 0}
+.doc .figure figcaption{color:var(--faint);font-size:11.5px;margin-top:10px}
+.doc code{font-family:var(--mono);font-size:12.5px;background:var(--raised);border-radius:5px;padding:2px 6px;color:var(--amber)}
+.formula{font-family:var(--mono);font-size:14px;color:var(--ink);background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:12px 0;overflow-x:auto}
+.backlink{display:inline-block;margin-bottom:18px;font:600 12px var(--mono);letter-spacing:.08em}
+.toc{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 20px;margin:20px 0}
+.toc a{display:block;padding:4px 0;color:var(--dim);font-size:13px}
+.toc a:hover{color:var(--amber);text-decoration:none}
+.toc .label{font:600 10px var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--faint);margin-bottom:6px}
+
+@media (max-width:1100px){
+  .workspace{grid-template-columns:1fr}
+  .control-grid{grid-template-columns:1fr 1fr}
+  .summary-grid{grid-template-columns:1fr 1fr}
+  h1{font-size:40px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+</style>
+</head>
+<body>
+<div class="app-shell doc">
+  <a class="backlink" href="index.html">&larr; BACK TO THE BOARD</a>
+  <header class="masthead">
+    <div>
+      <div class="eyebrow">Model documentation &middot; v1.2.1</div>
+      <h1>How APEX <span>Works</span></h1>
+      <p class="lede">APEX is a two-stage residual model. Stage one is the draft market itself - where a player was picked. Stage two is what the model knows that the market might not. APEX+ is the calibrated combination of the two, and it beats both on out-of-time data.</p>
+    </div>
+  </header>
+
+  <nav class="toc">
+    <div class="label">Contents</div>
+    <a href="#target">1 &middot; What the model predicts</a>
+    <a href="#stage1">2 &middot; Stage one: the pick market</a>
+    <a href="#stage2">3 &middot; Stage two: the model's read</a>
+    <a href="#plus">4 &middot; APEX+: amplifying the disagreement</a>
+    <a href="#calibration">5 &middot; Calibration: turning a grade into odds</a>
+    <a href="#card">6 &middot; Reading a player card</a>
+    <a href="#classes">7 &middot; Class coverage: 2024, 2025, 2026</a>
+    <a href="#validation">8 &middot; Validation &amp; honest limitations</a>
+    <a href="#glossary">9 &middot; Glossary &amp; changelog</a>
+  </nav>
+
+  <h2 id="target"><span class="idx">01</span>What the model predicts</h2>
+  <p>The target is <b>within-class Career AV percentile</b>: take every player in a draft class, rank their career Approximate Value (Pro-Football-Reference's all-position value stat), and convert to a 0&ndash;100 percentile. A 90 means a top-10% career for that class; a 25 means a bottom-quartile one.</p>
+  <p>Ranking within class, rather than using raw AV, neutralizes era effects - longer careers in older data, scoring inflation, rule changes - so a 2003 grade and a 2023 grade mean the same thing.</p>
+
+  <h2 id="stage1"><span class="idx">02</span>Stage one: the pick market</h2>
+  <p>Draft position is the single strongest public predictor of career outcome - 32 front offices pricing a player is hard to beat. Stage one fits the historical curve of <b>expected career percentile by pick number</b> (the dashed amber curve on the board's pick-to-outcome map). Pick #1 has produced roughly a 98th-percentile career on average; pick #100 about a 64th; pick #250 about a 45th.</p>
+  <p>This curve alone reaches a Spearman rank correlation of <b>&rho; = 0.615</b> with actual outcomes on the holdout. Every claim the model makes is measured against this baseline - if APEX can't beat the market, it isn't adding anything.</p>
+
+  <h2 id="stage2"><span class="idx">03</span>Stage two: the model's read</h2>
+  <p>Stage two models the <b>residual</b>: how much a player should outperform or underperform their draft slot, using college production, athletic profile, position, school context, and draft-capital interactions. The output is the <b>raw APEX grade</b>, and the difference between it and the market curve is the <b>edge</b>:</p>
+  <div class="formula">edge = APEX_raw &minus; market(pick)</div>
+  <p>The edge is where the model earns its keep. Among 2000&ndash;2019 draftees, players the model graded <b>+2 points or more above</b> their slot went on to beat the market <b>84.6%</b> of the time (mean outperformance +12.8 percentile points). Players graded <b>&minus;2 or worse</b> beat the market only <b>17.2%</b> of the time (mean &minus;19.5 points). A neutral read was a coin flip, as it should be.</p>
+  <figure class="figure">
+    <table>
+      <thead><tr><th>Model read</th><th class="num">Players</th><th class="num">Beat the market</th><th class="num">Avg vs market</th></tr></thead>
+      <tbody>
+        <tr><td>Edge &ge; +2.0</td><td class="num">719</td><td class="num good">84.6%</td><td class="num good">+12.8</td></tr>
+        <tr><td>Neutral (&minus;2 to +2)</td><td class="num">3,159</td><td class="num">57.7%</td><td class="num">+1.0</td></tr>
+        <tr><td>Fade &le; &minus;2.0</td><td class="num">518</td><td class="num bad">17.2%</td><td class="num bad">&minus;19.5</td></tr>
+      </tbody>
+    </table>
+    <figcaption>Drafted players, 2000&ndash;2019 classes. "Beat the market" = career percentile above the expectation for their pick.</figcaption>
+  </figure>
+
+  <h2 id="plus"><span class="idx">04</span>APEX+: amplifying the disagreement</h2>
+  <p>v1.2's headline change. Backtesting revealed that the raw model systematically <b>under-trusts its own residual</b>: its disagreements with the market pointed the right direction but were too small in magnitude. Scaling the residual recovers that lost signal:</p>
+  <div class="formula">APEX+ = clip( market(pick) + 3.5 &times; (APEX_raw &minus; market(pick)) , 1, 99 )</div>
+  <p>The amplification factor was fit out-of-time and is remarkably stable - the optimum lands between &times;3 and &times;4 in <b>every</b> multi-year window from 2008 to 2020:</p>
+  <figure class="figure">
+    <table>
+      <thead><tr><th>Validation window</th><th class="num">Market only</th><th class="num">Raw APEX (&times;1)</th><th class="num">APEX+ (&times;3.5)</th></tr></thead>
+      <tbody>
+        <tr><td>2008&ndash;2011</td><td class="num">0.585</td><td class="num">0.625</td><td class="num good">0.689</td></tr>
+        <tr><td>2012&ndash;2014 (official holdout)</td><td class="num">0.615</td><td class="num">0.658</td><td class="num good">0.697</td></tr>
+        <tr><td>2015&ndash;2017</td><td class="num">0.596</td><td class="num">0.637</td><td class="num good">0.674</td></tr>
+        <tr><td>2018&ndash;2020</td><td class="num">0.601</td><td class="num">0.641</td><td class="num good">0.670</td></tr>
+      </tbody>
+    </table>
+    <figcaption>Spearman &rho; between projection and actual within-class career percentile, drafted players only.</figcaption>
+  </figure>
+  <p>Intuition: when a tree-based residual model is regularized to avoid overfitting, its predictions get shrunk toward zero. The direction survives; the magnitude doesn't. The &times;3.5 rescale undoes that shrinkage where it's been verified to help. It changes <b>no</b> rankings driven purely by draft slot - it only widens the gap when the model and market disagree.</p>
+
+  <h2 id="calibration"><span class="idx">05</span>Calibration: turning a grade into odds</h2>
+  <p>A "73rd-percentile projection" is abstract. Calibration makes it concrete: among the 4,396 drafted players from 2000&ndash;2019, how did players at each APEX+ level actually turn out? Outcomes are bucketed into four tiers by final career percentile: <b>Star</b> (&ge;85), <b>Starter</b> (70&ndash;85), <b>Contributor</b> (45&ndash;70), <b>Minimal</b> (&lt;45).</p>
+  <figure class="figure">
+    <table>
+      <thead><tr><th>APEX+ band</th><th class="num">n</th><th class="num">Star</th><th class="num">Starter</th><th class="num">Contributor</th><th class="num">Minimal</th><th class="num">Median outcome</th></tr></thead>
+      <tbody>
+        <tr><td>90&ndash;99</td><td class="num">364</td><td class="num good">76%</td><td class="num">19%</td><td class="num">5%</td><td class="num">0%</td><td class="num">93.5</td></tr>
+        <tr><td>80&ndash;90</td><td class="num">716</td><td class="num good">57%</td><td class="num">32%</td><td class="num">12%</td><td class="num">0%</td><td class="num">87.7</td></tr>
+        <tr><td>70&ndash;80</td><td class="num">761</td><td class="num">33%</td><td class="num">37%</td><td class="num">27%</td><td class="num">3%</td><td class="num">78.1</td></tr>
+        <tr><td>60&ndash;70</td><td class="num">989</td><td class="num">17%</td><td class="num">33%</td><td class="num">37%</td><td class="num">12%</td><td class="num">70.3</td></tr>
+        <tr><td>50&ndash;60</td><td class="num">968</td><td class="num">9%</td><td class="num">22%</td><td class="num">37%</td><td class="num">32%</td><td class="num">59.0</td></tr>
+        <tr><td>40&ndash;50</td><td class="num">431</td><td class="num">2%</td><td class="num">9%</td><td class="num">27%</td><td class="num bad">62%</td><td class="num">32.4</td></tr>
+        <tr><td>&lt;40</td><td class="num">167</td><td class="num">0%</td><td class="num">1%</td><td class="num">13%</td><td class="num bad">86%</td><td class="num">24.5</td></tr>
+      </tbody>
+    </table>
+    <figcaption>These exact percentages drive the stacked odds bar on every player card. No player is ever a sure thing: even a 90+ grade misses Star one time in four.</figcaption>
+  </figure>
+  <p>This is also why the board shows probability bars instead of single labels. A 65 grade isn't "a Contributor" - it's a player who hits Starter-or-better half the time and busts one time in eight.</p>
+
+  <h2 id="card"><span class="idx">06</span>Reading a player card</h2>
+  <p>Every drafted player's card has four parts, in the order you should read them:</p>
+  <ul>
+    <li><b>The projection ribbon.</b> A 0&ndash;100 percentile track. The blue pin is the <b>market</b> expectation for the draft slot; the amber diamond is <b>APEX+</b>. The shaded span between them is the model's disagreement - green if APEX+ is higher, red if lower. For graded classes, a white pin marks the <b>actual</b> outcome, so you can see at a glance who was right.</li>
+    <li><b>Calibrated outcome odds.</b> The stacked bar from the table above, for this player's exact grade band - real frequencies, not vibes.</li>
+    <li><b>Why this grade.</b> The three-step arithmetic spelled out with this player's numbers: market baseline &rarr; model read &rarr; &times;3.5 amplification.</li>
+    <li><b>Closest historical comps.</b> The five settled-career players (2000&ndash;2019) at the same position group with the nearest APEX+ and market profile, with how each turned out. If 4 of 5 comps hit, that tells you more than any single number.</li>
+  </ul>
+
+  <h2 id="classes"><span class="idx">07</span>Class coverage: 2024, 2025, 2026</h2>
+  <p><b>2000&ndash;2023</b> - graded classes. Careers are settled (or nearly so for 2020&ndash;2023); the "Actual" column is meaningful, and 2000&ndash;2019 players power calibration and comps.</p>
+  <p><b>2024 - early returns.</b> These players were drafted, so they get full APEX+ projections, ribbons, odds, and comps. But the "Actual" column reflects only one season of Career AV and is flagged <b>provisional</b> on the card: one-year percentiles overweight immediate playing time, and a redshirted rookie can still hit. Trust the projection over the early actual.</p>
+  <p><b>2025 &amp; 2026 - drafted, projections live.</b> Actual draft results (every pick, rounds 1&ndash;7) are now merged into the dataset for both classes. Each drafted player gets a market baseline from their real slot (position-aware historical lookup), the model's pre-draft residual read as the edge, and a full APEX+ projection with calibrated odds, ribbon, and comps. The DB gate is preserved: the model declines to disagree with the market at DB, exactly as it does historically. NFL outcomes for these classes are not yet folded in, so cards are pure projection - flagged "rookie" (2026) or "yr 1" (2025). Watchlist players who went unselected appear as <b>UDFA</b> with their raw read only, since APEX+ tiers are anchored to draft capital. Late-round picks the model never graded pre-draft (mostly small-school Day 3 selections) are not shown.</p>
+
+  <h2 id="validation"><span class="idx">08</span>Validation &amp; honest limitations</h2>
+  <ul>
+    <li><b>Out-of-time holdout.</b> The headline &rho; = 0.697 is on 2012&ndash;2014, never touched in training, and the amplification factor reproduces across four independent windows. That said, historical APEX grades shown for the deepest training years may be partially in-sample - treat the very early classes' "edge" as descriptive, not predictive proof.</li>
+    <li><b>Career AV is imperfect.</b> It undervalues specialists and run-blocking, overvalues volume, and compresses differences at the top. It's the best public all-position outcome stat, not the truth.</li>
+    <li><b>Positions differ.</b> The model's residual adds the most signal at RB, QB, and TE, solid signal at WR, DT, and LB, and essentially nothing at DB in some eras (the board shows zero edges there - the model declines to disagree rather than inventing one).</li>
+    <li><b>Comps are profile matches, not scouting matches.</b> Two players with identical APEX+ and draft capital can be wildly different athletes. Comps tell you how this <em>statistical profile</em> resolves, nothing more.</li>
+    <li><b>Probabilities are base rates.</b> The odds bars are historical frequencies for a grade band. They don't know about injuries, scheme fit, or character - and neither does the model.</li>
+  </ul>
+
+  <h2 id="glossary"><span class="idx">09</span>Glossary &amp; changelog</h2>
+  <ul>
+    <li><b>Career AV percentile (Actual)</b> - within-class rank of career Approximate Value, 0&ndash;100.</li>
+    <li><b>Market</b> - expected career percentile for a draft slot, fit on 2000&ndash;2019 history.</li>
+    <li><b>Raw APEX</b> - market plus the stage-two model's residual read.</li>
+    <li><b>Edge</b> - raw APEX minus market. The model's disagreement with the league.</li>
+    <li><b>APEX+</b> - market + 3.5 &times; edge, clipped to 1&ndash;99. The board's headline projection.</li>
+    <li><b>Tiers</b> - Star &ge;85 &middot; Starter 70&ndash;85 &middot; Contributor 45&ndash;70 &middot; Minimal &lt;45.</li>
+  </ul>
+  <p><b>v1.2.1</b> (this release) - merged actual 2025 and 2026 draft results (257 picks each; 237 and 234 matched to graded prospects); live APEX+ projections for both rookie classes via position-aware market lookup + pre-draft residual edge (DB gate preserved); undrafted handling.<br>
+  <b>v1.2</b> - APEX+ residual amplification (&rho; 0.658 &rarr; 0.697 on holdout); calibrated outcome odds on every card; projection ribbon; historical comps; class-aware handling for 2024 (provisional) and 2025/26 (watchlist); this documentation page.<br>
+  <b>v1.1</b> - expanded board to 2000&ndash;2026; Fitzgerald-Spielberger pick-value calibration; SoS shrinkage features.</p>
+
+  <footer>APEX v1.2 &middot; <a href="index.html">back to the board</a> &middot; data: public Pro-Football-Reference and draft archives.</footer>
+</div>
+</body>
+</html>

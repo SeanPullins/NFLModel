@@ -1,16 +1,9 @@
 """Position-specific residual model backtest.
 
-This script tests whether replacing one global residual model with separate
-position-family residual models improves rolling out-of-time accuracy.
+Default challenger model:
+    position-specific raw APEX with the `profile` feature set
 
-It can use optional production features when present in data/model_features.csv.
-Build that file with:
-
-    python src/build_features.py --write-templates
-
-Then run:
-
-    python src/position_models.py --first-test-year 2011 --last-test-year 2021 --end-year 2021
+Production features remain experimental and are evaluated in ablation reports.
 """
 from __future__ import annotations
 
@@ -25,8 +18,8 @@ import pandas as pd
 from backtest import DEFAULT_APEX_PLUS_FACTOR, aggregate_report, flatten_metrics, score_apex_plus
 from build_features import merge_optional_features
 from feature_registry import ENRICHED_FEATURE_FILE, POSITION_MODEL_GROUPS, production_features_for_pos
+from feature_sets import DEFAULT_FEATURE_SET, FEATURE_SETS, model_features_for
 from pipeline import (
-    FEATS_A,
     ROOT,
     load_dataset,
     make_baseline,
@@ -41,7 +34,7 @@ from pipeline import (
 
 def load_modeling_table(data_dir: str | None = None, enriched_path: str | None = None, end_year: int | None = None) -> pd.DataFrame:
     path = Path(enriched_path) if enriched_path else ENRICHED_FEATURE_FILE
-    if path.exists():
+    if enriched_path and path.exists():
         df = pd.read_csv(path)
         if end_year is not None and "Year" in df.columns:
             df = df[pd.to_numeric(df["Year"], errors="coerce") <= end_year].copy()
@@ -77,18 +70,16 @@ def fit_position_residuals(
     train: pd.DataFrame,
     base: Callable[[pd.DataFrame], np.ndarray],
     *,
+    feats: list[str],
     min_train_rows: int,
-    min_coverage: float,
 ) -> tuple[Callable[[pd.DataFrame], np.ndarray], dict]:
-    global_resid, _ = make_resid(train, base, feats=FEATS_A)
+    global_resid, _ = make_resid(train, base, feats=feats)
     models = {}
-    report = {"families": {}, "fallback": "global_profile_residual"}
+    report = {"families": {}, "fallback": "global_profile_residual", "features": feats}
 
     for family, positions in POSITION_MODEL_GROUPS.items():
         mask = train["pos_g"].astype(str).isin(positions)
         subset = train.loc[mask].copy()
-        extra = available_extra_features(subset, positions, min_coverage=min_coverage)
-        feats = FEATS_A + extra
         if len(subset) < min_train_rows:
             report["families"][family] = {
                 "trained": False,
@@ -103,7 +94,6 @@ def fit_position_residuals(
             "trained": True,
             "n_train": int(len(subset)),
             "features": feats,
-            "extra_features": extra,
         }
 
     def predict(part: pd.DataFrame) -> np.ndarray:
@@ -124,7 +114,7 @@ def evaluate_year(
     validation_years: int,
     apex_plus_factor: float,
     min_train_rows: int,
-    min_coverage: float,
+    feature_set: str,
 ) -> tuple[dict, dict]:
     train_for_shrink_end = test_year - validation_years - 1
     valid_start = test_year - validation_years
@@ -138,43 +128,31 @@ def evaluate_year(
     if train_for_shrink_raw.empty or valid_raw.empty or final_train_raw.empty or test_raw.empty:
         raise ValueError(f"Not enough data to evaluate {test_year}")
 
+    feats = model_features_for(feature_set)
+
     train_for_shrink, valid = prepare_fold(train_for_shrink_raw, valid_raw)
     base_for_shrink, _, _ = make_baseline(train_for_shrink)
-    resid_for_shrink, fit_report = fit_position_residuals(
-        train_for_shrink,
-        base_for_shrink,
-        min_train_rows=min_train_rows,
-        min_coverage=min_coverage,
-    )
+    resid_for_shrink, fit_report = fit_position_residuals(train_for_shrink, base_for_shrink, feats=feats, min_train_rows=min_train_rows)
     shrink = tune_position_shrinkage(valid, base_for_shrink, resid_for_shrink)
 
     final_train, test = prepare_fold(final_train_raw, test_raw)
     pick_only, _ = make_pick_baseline(final_train)
     base, _, _ = make_baseline(final_train)
-    resid, fit_report = fit_position_residuals(
-        final_train,
-        base,
-        min_train_rows=min_train_rows,
-        min_coverage=min_coverage,
-    )
+    resid, fit_report = fit_position_residuals(final_train, base, feats=feats, min_train_rows=min_train_rows)
 
     scored = test.copy()
     scored["pick_only"] = pick_only(scored)
     scored["market"] = base(scored)
     scored["position_apex_raw"] = score_apex(scored, base, resid, shrink)
-    scored["position_apex_plus"] = score_apex_plus(
-        scored["market"].to_numpy(),
-        scored["position_apex_raw"].to_numpy(),
-        apex_plus_factor,
-    )
+    scored["position_apex_plus"] = score_apex_plus(scored["market"].to_numpy(), scored["position_apex_raw"].to_numpy(), apex_plus_factor)
 
     row = {
         "test_year": test_year,
         "train_years": f"<= {test_year - 1}",
         "validation_years": f"{valid_start}-{valid_end}",
+        "feature_set": feature_set,
         "apex_plus_factor": apex_plus_factor,
         "min_train_rows": min_train_rows,
-        "min_coverage": min_coverage,
         "n_all": int(len(scored)),
         "n_drafted": int(scored["Pick"].lt(263).sum()),
     }
@@ -197,8 +175,8 @@ def run_backtest(
     enriched_path: str | None,
     apex_plus_factor: float,
     min_train_rows: int,
-    min_coverage: float,
     end_year: int | None = None,
+    feature_set: str = DEFAULT_FEATURE_SET,
 ) -> tuple[pd.DataFrame, dict]:
     effective_end_year = end_year if end_year is not None else max(last_test_year, 2016)
     df = load_modeling_table(data_dir=data_dir, enriched_path=enriched_path, end_year=effective_end_year)
@@ -206,30 +184,23 @@ def run_backtest(
     fit_reports = {}
     for year in range(first_test_year, last_test_year + 1):
         try:
-            row, fit_report = evaluate_year(
-                df,
-                year,
-                validation_years,
-                apex_plus_factor,
-                min_train_rows,
-                min_coverage,
-            )
+            row, fit_report = evaluate_year(df, year, validation_years, apex_plus_factor, min_train_rows, feature_set)
         except ValueError as exc:
             print(f"Skipping {year}: {exc}")
             continue
         rows.append(row)
         fit_reports[str(year)] = fit_report
         print(
-            f"{year}: position raw={row['position_apex_raw_spearman_drafted']:.3f} "
-            f"position APEX+={row['position_apex_plus_spearman_drafted']:.3f} "
-            f"pick={row['pick_only_spearman_drafted']:.3f} "
-            f"raw_delta={row['delta_raw_vs_pick_spearman_drafted']:.3f} "
-            f"plus_delta={row['delta_plus_vs_pick_spearman_drafted']:.3f}"
+            f"{year}: position feature_set={feature_set} raw={row['position_apex_raw_spearman_drafted']:.3f} "
+            f"position APEX+={row['position_apex_plus_spearman_drafted']:.3f} pick={row['pick_only_spearman_drafted']:.3f} "
+            f"raw_delta={row['delta_raw_vs_pick_spearman_drafted']:.3f} plus_delta={row['delta_plus_vs_pick_spearman_drafted']:.3f}"
         )
 
     summary = pd.DataFrame(rows)
-    report = aggregate_report(summary, first_test_year, last_test_year, validation_years, apex_plus_factor, effective_end_year) if not summary.empty else {}
+    report = aggregate_report(summary, first_test_year, last_test_year, validation_years, apex_plus_factor, effective_end_year, feature_set) if not summary.empty else {}
     report["model_type"] = "position_specific_residuals"
+    report["feature_set"] = feature_set
+    report["promotion_status"] = "top challenger; not headline unless it passes strict promotion gates"
     report["fit_reports_by_year"] = fit_reports
     return summary, report
 
@@ -241,8 +212,8 @@ def main() -> None:
     parser.add_argument("--end-year", type=int, default=None, help="Last source-data year to load. Defaults to max(last-test-year, 2016).")
     parser.add_argument("--validation-years", type=int, default=2)
     parser.add_argument("--apex-plus-factor", type=float, default=DEFAULT_APEX_PLUS_FACTOR)
+    parser.add_argument("--feature-set", type=str, default=DEFAULT_FEATURE_SET, choices=sorted(FEATURE_SETS))
     parser.add_argument("--min-train-rows", type=int, default=300)
-    parser.add_argument("--min-coverage", type=float, default=0.15)
     parser.add_argument("--data-dir", type=str, default=None)
     parser.add_argument("--features", type=str, default=None, help="Optional path to data/model_features.csv")
     parser.add_argument("--out-dir", type=str, default=str(ROOT / "reports"))
@@ -256,8 +227,8 @@ def main() -> None:
         enriched_path=args.features,
         apex_plus_factor=args.apex_plus_factor,
         min_train_rows=args.min_train_rows,
-        min_coverage=args.min_coverage,
         end_year=args.end_year,
+        feature_set=args.feature_set,
     )
 
     out_dir = Path(args.out_dir)

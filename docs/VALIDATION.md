@@ -95,6 +95,22 @@ quintile): consensus reach 33%/4%, ESPN grade 33%/4%, age 23+ 26%/13%,
 weak college pedigree 27%/16%, poor agility 23%/13%. See
 `reports/bust_trait_table.csv`.
 
+## PFF QB features: first measurement (2026-07, partial seasons)
+
+With PFF passing-page exports for seasons 2014/2015/2017/2020/2022/2025 (6 of
+12) mapped into QB features and the recent-window coverage rule active:
+
+| Challenger config | Mean lift | Wins | Worst |
+|---|---:|---:|---:|
+| position profile-only | +0.0131 | 9/11 | -0.0515 |
+| + ESPN college QBR | **+0.0139** | **10/11** | -0.0515 |
+| + QBR + partial PFF | +0.0132 | 9/11 | -0.0515 |
+
+With half the seasons missing, PFF career aggregates are noisy and slightly
+hurt 2019-2021 relative to QBR-only. Decision: keep the intake, exclude PFF
+from the promoted challenger config until the remaining passing seasons
+(2016, 2018, 2019, 2021, 2023, 2024) arrive; re-measure then.
+
 ## Season-trajectory features: investigated, not implemented (2026-07)
 
 Public season-by-season college stats (JackLich10 `college_statistics.csv` and

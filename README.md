@@ -272,7 +272,7 @@ Highest-impact next data additions:
 
 1. ~~consensus-board / expected-pick history for true pre-draft forecasting~~ **done** — ESPN boards 2004-2021 via `src/build_consensus_board.py`; extend with mock-draft aggregates (e.g. Grinding the Mocks) when a public archive exists
 2. ~~QB efficiency features~~ **done** — ESPN college Total QBR (2004+) via `src/build_qb_production.py`; improves the position-family challenger (mean lift +0.0131 → +0.0139, 10/11 win years). True pressure-to-sack still wanted.
-3. season-by-season production trajectory (final-season surge vs career average) from `JackLich10/nfl-draft-data` `college_statistics.csv` — downloaded and vetted, not yet featurized
+3. ~~season-by-season production trajectory~~ **investigated, rejected for now** — public season-level college stats (JackLich10 `college_statistics.csv`, `cfbfastR-data player_stats`) only start in 2014, so no draft class has both training coverage and mature outcomes; see `reports/trajectory_feasibility.json` for the coverage table and the revisit trigger (~2027, when 2019-2021 classes mature)
 4. route-level WR/TE features such as YPRR and target share
 5. EDGE pressure rate and pass-rush win rate
 6. OL pressure allowed and snap data

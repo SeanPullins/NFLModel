@@ -4,23 +4,52 @@ Two-stage residual NFL draft model + interactive scouting dashboard for historic
 
 ## Current honest validation status
 
-The regenerated public-source backtest showed that **raw APEX has a small edge**, but the old **APEX+ 3.5x residual amplification did not reproduce the earlier headline result**. Until a residual factor passes promotion gates, the honest headline model is **raw APEX**, not APEX+.
+The regenerated public-source validation found a small, repeatable edge over draft slot, but not enough to justify the older aggressive APEX+ headline. The public/default model is now:
 
-Current rule:
+```text
+raw APEX + profile feature set
+```
 
-> APEX+ is experimental. Raw APEX remains the baseline headline unless `src/sweep_apex_factor.py` finds a factor that passes mean, median, win-rate, and worst-window gates.
+That means:
+
+```text
+draft market baseline + combine/profile features + age + college encoding
+```
+
+NCAA production and APEX+ amplification remain experimental until they beat the default model on average lift, median lift, win rate, and worst-window behavior.
+
+## Current model roles
+
+| Component | Status | Use |
+|---|---|---|
+| `profile` raw APEX | **Default / public board** | Main board score and headline validation |
+| `position_profile_only` | **Top challenger** | Worth tracking, not fully promoted |
+| NCAA production features | Experimental | Available for ablations, not headline |
+| APEX+ residual amplification | Experimental | Not promoted |
 
 ## What changed in this upgrade
 
-- **Raw APEX is the board grade**. APEX+ remains experimental until a factor earns promotion.
-- **NCAA production features from `phcs971/nfl-draft-dataset` are now included** in the model pipeline.
-- **NFL career stats are excluded from feature inputs** to avoid outcome leakage.
-- **Feature ablation backtests now compare profile-only, production-only, offensive-only, defensive-only, and position-specific variants.**
-- **The 2011-2021 validation workflow remains the gatekeeper** for any accuracy claim.
+- Added `src/feature_sets.py` for explicit model variants.
+- Made `profile` the default feature set in `src/backtest.py`.
+- Made `profile` the default board feature set in `src/improve.py`.
+- Made the position-specific profile-only model the default challenger in `src/position_models.py`.
+- Changed validation gates to evaluate raw APEX lift by default.
+- Workflow now builds a profile-only public board through 2026 while validating mature classes through 2021.
+- NCAA production stays available in ablation reports but is not in the headline board.
 
-## Production features added from source data
+## Feature sets
 
-The public source includes NCAA career stats. The downloader now converts those into pre-draft per-game production features:
+```text
+profile                         combine/profile + age + college encoding
+profile_plus_production         profile + all NCAA production features
+production_only                 all NCAA production features only
+offensive_production_only       NCAA offensive production only
+defensive_production_only       NCAA defensive production only
+```
+
+## Production features available for experiments
+
+The public source includes NCAA career stats. The downloader converts those into pre-draft per-game production features:
 
 ```text
 college_games
@@ -47,9 +76,9 @@ These come from college production only. They do **not** use NFL outcomes such a
 ## Architecture
 
 1. **Market baseline** — isotonic regression from pick to outcome, with optional per-position blending.
-2. **Raw APEX residual model** — 5-seed bagged LightGBM on position-normalized combine/profile features, age, shrunken college encoding, and optional NCAA production features.
+2. **Raw APEX residual model** — 5-seed bagged LightGBM on selected feature set.
 3. **Per-position shrinkage** — residual weight tuned by position on an earlier validation fold, then applied to the out-of-time test fold.
-4. **APEX+ experimental residual amplification** — `market + factor x (raw APEX - market)`, clipped to a 1-99 percentile range. This is not promoted unless the factor sweep passes gates.
+4. **APEX+ experimental residual amplification** — `market + factor x (raw APEX - market)`, clipped to a 1-99 percentile range. This is not promoted unless factor sweep passes gates.
 
 **Target:** within-class Career AV percentile. This is a ranking target, not a calibrated projection of exact career value.
 
@@ -57,23 +86,23 @@ These come from college production only. They do **not** use NFL outcomes such a
 
 ```text
 src/
+  feature_sets.py              named model feature sets
   pipeline.py                  shared loading, feature, baseline, residual, and metric utilities
   download_source_data.py      downloads public source data and writes pipeline raw inputs
   feature_registry.py          optional production/consensus feature definitions
   build_features.py            builds data/model_features.csv from optional feature files
-  improve.py                   train + original holdout evaluation
-  backtest.py                  rolling out-of-time validation with --end-year support
+  improve.py                   trains profile-only public board by default
+  backtest.py                  rolling out-of-time validation with --feature-set and --end-year support
   sweep_apex_factor.py         sweeps APEX+ residual factors and gates promotion
   ablation_backtest.py         compares profile/production/position-specific feature families
-  experiment_feature_sets.py   compares profile-only vs postdraft-interaction residual features
   predraft_backtest.py         evaluates true pre-draft market/prospect forecasting
-  position_models.py           tests position-family residual models with --end-year support
+  position_models.py           tests position-family residual models with --feature-set support
   validation_gates.py          promotion checks for candidate models
   build_site.py                static dashboard builder
   template.html                dashboard template
 
 .github/workflows/
-  run-backtests.yml            downloads sources, runs backtests, factor sweep, ablations, gates, uploads reports
+  run-backtests.yml            downloads sources, builds board, runs backtests, factor sweep, ablations, gates, uploads reports
 
 data/
   apex_board.csv      generated board used by dashboard
@@ -120,12 +149,14 @@ The workflow runs:
 
 ```bash
 python src/download_source_data.py
-python src/backtest.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --apex-plus-factor 3.5
+python src/improve.py --feature-set profile --end-year 2026
+python src/build_site.py
+python src/backtest.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --feature-set profile --apex-plus-factor 3.5
 python src/sweep_apex_factor.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --factors "0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3,3.25,3.5"
-python src/position_models.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --apex-plus-factor 3.5
+python src/position_models.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --feature-set profile --apex-plus-factor 3.5
 python src/ablation_backtest.py --first-test-year 2011 --last-test-year 2021 --end-year 2021
-python src/validation_gates.py reports/rolling_backtest_summary.csv --out reports/rolling_validation_gates.json
-python src/validation_gates.py reports/position_model_backtest_summary.csv --out reports/position_model_validation_gates.json
+python src/validation_gates.py reports/rolling_backtest_summary.csv --delta-col delta_raw_vs_pick_spearman_drafted --out reports/rolling_validation_gates.json
+python src/validation_gates.py reports/position_model_backtest_summary.csv --delta-col delta_raw_vs_pick_spearman_drafted --out reports/position_model_validation_gates.json
 ```
 
 It uploads an artifact named:
@@ -139,9 +170,11 @@ apex-backtest-reports
 ```bash
 pip install -r requirements.txt
 python src/download_source_data.py
-python src/backtest.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --apex-plus-factor 3.5
+python src/improve.py --feature-set profile --end-year 2026
+python src/build_site.py
+python src/backtest.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --feature-set profile --apex-plus-factor 3.5
 python src/sweep_apex_factor.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --factors "0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3,3.25,3.5"
-python src/position_models.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --apex-plus-factor 3.5
+python src/position_models.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --feature-set profile --apex-plus-factor 3.5
 python src/ablation_backtest.py --first-test-year 2011 --last-test-year 2021 --end-year 2021
 ```
 
@@ -160,6 +193,9 @@ reports/feature_ablation_by_year.csv
 reports/feature_ablation_report.json
 reports/rolling_validation_gates.json
 reports/position_model_validation_gates.json
+data/apex_board.csv
+index.html
+docs/index.html
 ```
 
 ## Feature ablation checks
@@ -192,7 +228,7 @@ Promote a candidate only if it improves:
 - worst-window behavior
 - practical draft metrics such as precision@32 / precision@64
 
-A single higher headline Spearman is not enough. If no APEX+ factor passes gates, the public claim stays with **raw APEX**.
+A single higher headline Spearman is not enough. If no APEX+ factor passes gates, the public claim stays with **raw profile-only APEX**.
 
 ## Next data additions
 

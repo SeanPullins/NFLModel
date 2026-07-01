@@ -61,10 +61,25 @@ COLLEGE_PRODUCTION_FEATURES = [
     "college_def_playmaking_pg",
 ]
 
-RAW_FEATURES = ATHLETIC_FEATURES + COLLEGE_PRODUCTION_FEATURES
-FEATS_A = [f"{c}_z" for c in RAW_FEATURES] + ["age", "col_enc"]
+# Pre-draft consensus market features from data/consensus/consensus_board.csv
+# (ESPN pre-draft boards via JackLich10/nfl-draft-data). log_consensus_rank and
+# espn_grade are pure pre-draft signals; consensus_vs_pick compares the
+# pre-draft board to the actual pick, so it is post-draft-only.
+CONSENSUS_MARKET_FEATURES = [
+    "log_consensus_rank",
+    "espn_grade",
+    "consensus_vs_pick",
+]
+
+RAW_FEATURES = ATHLETIC_FEATURES + COLLEGE_PRODUCTION_FEATURES + CONSENSUS_MARKET_FEATURES
+# FEATS_A intentionally excludes consensus features: it is the default residual
+# feature list for the pre-draft model, where consensus_vs_pick would leak the
+# actual pick.
+FEATS_A = [f"{c}_z" for c in ATHLETIC_FEATURES + COLLEGE_PRODUCTION_FEATURES] + ["age", "col_enc"]
 FEATS_C = FEATS_A + ["logpick"]
 CATS = ["pos_g"]
+
+OFF_BOARD_CONSENSUS_RANK = 450.0
 
 
 def norm(value: object) -> str:
@@ -134,6 +149,11 @@ def add_base_features(df: pd.DataFrame) -> pd.DataFrame:
     out["explosion"] = out["vert_leap"] + out["broad"] / 12
     out["agility"] = out["cone"] + out["shuttle"]
     out["logpick"] = np.log(out["Pick"].clip(1, 262))
+
+    consensus_rank = pd.to_numeric(out.get("consensus_rank", np.nan), errors="coerce")
+    out["log_consensus_rank"] = np.log(consensus_rank.clip(1, OFF_BOARD_CONSENSUS_RANK))
+    out["espn_grade"] = pd.to_numeric(out.get("espn_grade", np.nan), errors="coerce")
+    out["consensus_vs_pick"] = out["logpick"] - out["log_consensus_rank"]
     return out
 
 
@@ -192,9 +212,37 @@ def load_dataset(
         df["college"] = "Unknown"
     df["college"] = df["college"].fillna("Unknown")
     df = df[df["pos_g"] != "ST"].copy()
+    df = merge_consensus_board(df, data_dir=data_dir)
     df = add_targets(add_base_features(df))
     df["pos_g"] = df["pos_g"].astype("category")
     return df
+
+
+def merge_consensus_board(df: pd.DataFrame, data_dir: str | Path | None = None) -> pd.DataFrame:
+    """Attach pre-draft consensus board columns when the optional file exists.
+
+    Players missing from the board in a year the board covers are treated as
+    "off board" (rank OFF_BOARD_CONSENSUS_RANK). Years the board does not cover
+    are left as NaN so training-fold median fill handles them.
+    """
+    out = df.copy()
+    try:
+        path = resolve_data_file("consensus/consensus_board.csv", data_dir)
+    except FileNotFoundError:
+        out["consensus_rank"] = np.nan
+        out["espn_grade"] = np.nan
+        return out
+
+    board = pd.read_csv(path)
+    board = board[board["Year"].notna() & board["Player"].notna()].copy()
+    board["key"] = board["Player"].map(norm) + "_" + pd.to_numeric(board["Year"], errors="coerce").astype("Int64").astype(str)
+    keep = board.drop_duplicates("key")[["key", "consensus_rank", "espn_grade"]]
+    out = out.merge(keep, on="key", how="left", suffixes=("", "_board"))
+
+    board_years = set(pd.to_numeric(board["Year"], errors="coerce").dropna().astype(int))
+    covered = out["Year"].isin(board_years)
+    out.loc[covered & out["consensus_rank"].isna(), "consensus_rank"] = OFF_BOARD_CONSENSUS_RANK
+    return out
 
 
 def college_enc(train: pd.DataFrame, part: pd.DataFrame, k: int = 12) -> pd.Series:

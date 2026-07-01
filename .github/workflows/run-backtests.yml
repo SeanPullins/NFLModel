@@ -10,6 +10,10 @@ on:
       - "src/feature_sets.py"
       - "src/pipeline.py"
       - "src/download_source_data.py"
+      - "src/build_consensus_board.py"
+      - "src/build_qb_production.py"
+      - "src/build_features.py"
+      - "src/feature_registry.py"
       - "src/improve.py"
       - "src/add_conservative_scores.py"
       - "src/build_site.py"
@@ -66,8 +70,19 @@ jobs:
           python src/add_conservative_scores.py --factors "0.25,0.50,0.75"
           python src/build_site.py
 
-      - name: Check pre-draft consensus scaffold
-        run: python src/predraft_market.py --write-template --check
+      - name: Build ESPN pre-draft consensus board and QB production features
+        run: |
+          python src/build_consensus_board.py
+          python src/build_qb_production.py
+          python src/build_features.py --end-year 2021
+          python src/predraft_market.py --write-template --check
+
+      - name: Run pre-draft consensus backtest
+        run: |
+          python src/predraft_backtest.py \
+            --first-test-year 2011 \
+            --last-test-year 2021 \
+            --end-year 2021
 
       - name: Run profile-only raw APEX backtest
         run: |
@@ -147,6 +162,7 @@ jobs:
           cp docs/index.html _site/docs/index.html
           cp docs/validation.html _site/docs/validation.html
           cp docs/ablation.html _site/docs/ablation.html
+          cp docs/model.html _site/docs/model.html
           cp data/apex_board.csv _site/data/apex_board.csv
           cp reports/rolling_backtest_report.json _site/data/rolling_backtest_report.json || true
           cp reports/apex_factor_sweep_report.json _site/data/apex_factor_sweep_report.json || true
@@ -187,6 +203,8 @@ jobs:
           cat reports/feature_ablation_summary.csv || true
           echo "=== predraft_market_status.json ==="
           cat reports/predraft_market_status.json || true
+          echo "=== predraft_backtest_report.json ==="
+          cat reports/predraft_backtest_report.json || true
           echo "=== validation gates ==="
           cat reports/rolling_validation_gates.json || true
           cat reports/position_model_validation_gates.json || true

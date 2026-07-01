@@ -45,6 +45,41 @@ profile_plus_production         profile + all NCAA production features
 production_only                 all NCAA production features only
 offensive_production_only       NCAA offensive production only
 defensive_production_only       NCAA defensive production only
+profile_plus_consensus          profile + ESPN consensus board features (post-draft experiments only)
+```
+
+## Pre-draft consensus board
+
+`src/build_consensus_board.py` downloads ESPN pre-draft prospect boards
+(2004-2021 overall rank, position rank, and scouting grade) from
+`JackLich10/nfl-draft-data` and writes `data/consensus/consensus_board.csv`.
+This unlocks two things:
+
+1. **True pre-draft forecasting** — `src/predraft_backtest.py` fits its market
+   baseline on ESPN consensus rank instead of the actual pick, so the model can
+   be tested as a real before-draft-night forecaster.
+2. **Board-vs-pick features** — the `profile_plus_consensus` feature set adds
+   `log_consensus_rank`, `espn_grade`, and `consensus_vs_pick` (how far a
+   player fell or rose relative to consensus) to the post-draft residual model.
+   `consensus_vs_pick` uses the actual pick and must never be used pre-draft.
+
+Measured results (2011-2021 rolling backtest, drafted players):
+
+| Model | Mean lift vs pick | Median | Win rate | Worst year | Verdict |
+|---|---:|---:|---:|---:|---|
+| Pre-draft APEX vs ESPN consensus | -0.004 | +0.002 | 6/11 | -0.046 | Matches consensus, no edge yet |
+| Post-draft profile + consensus vs pick | +0.008 | +0.016 | 8/11 | -0.058 | Not promoted (default profile: +0.012 mean, -0.033 worst) |
+
+Actual draft slot beats public consensus by ~0.07 Spearman: front offices'
+private information (medicals, interviews, workouts) is real. The honest path
+to "beating the front office" is the post-draft residual edge plus late-round
+surplus flags, not pretending to out-rank the whole first round pre-draft.
+
+```bash
+python src/build_consensus_board.py
+python src/build_features.py --end-year 2021
+python src/predraft_backtest.py --first-test-year 2011 --last-test-year 2021 --end-year 2021
+python src/backtest.py --feature-set profile_plus_consensus --first-test-year 2011 --last-test-year 2021 --end-year 2021 --out-dir reports/consensus_experiment
 ```
 
 ## Production features available for experiments
@@ -136,6 +171,7 @@ Current source inputs:
 
 - `phcs971/nfl-draft-dataset` — combine, draft, career AV, and NCAA production data through 2024.
 - `array-carpenter/nfl-draft-data` — combine/pro-day measurements through 2026.
+- `JackLich10/nfl-draft-data` — ESPN pre-draft boards 2004-2021 (rank + grade), via `src/build_consensus_board.py`.
 
 ## Run from GitHub Actions
 
@@ -234,9 +270,10 @@ A single higher headline Spearman is not enough. If no APEX+ factor passes gates
 
 Highest-impact next data additions:
 
-1. consensus-board / expected-pick history for true pre-draft forecasting
-2. pressure-to-sack and age-adjusted QB efficiency features
-3. route-level WR/TE features such as YPRR and target share
-4. EDGE pressure rate and pass-rush win rate
-5. OL pressure allowed and snap data
-6. DB coverage and missed-tackle metrics
+1. ~~consensus-board / expected-pick history for true pre-draft forecasting~~ **done** — ESPN boards 2004-2021 via `src/build_consensus_board.py`; extend with mock-draft aggregates (e.g. Grinding the Mocks) when a public archive exists
+2. ~~QB efficiency features~~ **done** — ESPN college Total QBR (2004+) via `src/build_qb_production.py`; improves the position-family challenger (mean lift +0.0131 → +0.0139, 10/11 win years). True pressure-to-sack still wanted.
+3. season-by-season production trajectory (final-season surge vs career average) from `JackLich10/nfl-draft-data` `college_statistics.csv` — downloaded and vetted, not yet featurized
+4. route-level WR/TE features such as YPRR and target share
+5. EDGE pressure rate and pass-rush win rate
+6. OL pressure allowed and snap data
+7. DB coverage and missed-tackle metrics

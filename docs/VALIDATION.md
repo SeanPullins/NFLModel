@@ -30,6 +30,54 @@ Avoid claiming:
 | Position profile-only raw APEX | Top challenger | Track in reports |
 | NCAA production features | Experimental | Ablation only |
 | APEX+ residual amplification | Experimental | Factor sweep only |
+| Pre-draft APEX (ESPN consensus baseline) | Measured, no edge | `predraft_backtest.py` report only |
+| Consensus board-vs-pick features | Experimental | `profile_plus_consensus` feature set |
+
+## Pre-draft validation result (2011-2021)
+
+With ESPN pre-draft boards (2004-2021) as the market proxy:
+
+| Forecaster | Mean Spearman (drafted) |
+|---|---:|
+| Actual draft slot | ~0.59 |
+| ESPN consensus rank | ~0.52 |
+| Pre-draft APEX raw | ~0.52 (delta vs consensus: mean -0.004, median +0.002, win rate 6/11) |
+| Pre-draft APEX+ 3.5x | loses all 11 years — never use amplification pre-draft |
+
+Honest claim: the model matches public consensus pre-draft but has not beaten
+it, and nobody public beats the actual draft order on average.
+
+## Consensus board-vs-pick experiment (post-draft, 2011-2021)
+
+`profile_plus_consensus` (profile + consensus rank + ESPN grade +
+board-vs-pick disagreement):
+
+| Metric | profile (default) | profile_plus_consensus |
+|---|---:|---:|
+| Mean lift vs pick | +0.0117 | +0.0076 |
+| Median lift | +0.0138 | +0.0160 |
+| Win rate | 8/11 | 8/11 |
+| Worst year | -0.0328 | -0.0583 |
+
+Verdict: better median, worse mean and worst-window. Fails promotion rules;
+stays experimental.
+
+## College QBR experiment (position-family challenger, 2011-2021)
+
+`src/build_qb_production.py` adds ESPN college Total QBR features (2004+) to
+the QB family inside the position-family challenger model:
+
+| Metric | position profile-only | + QB college QBR |
+|---|---:|---:|
+| Mean lift vs pick | +0.0131 | +0.0139 |
+| Median lift | +0.0171 | +0.0171 |
+| Win rate | 9/11 | 10/11 |
+| Worst year | -0.0515 | -0.0515 |
+
+QBR data only reaches 25% training coverage from the 2016 test year onward;
+every year it is active improves or ties. Kept in the challenger configuration.
+The challenger still fails the strict worst-window gate (2011), so the global
+profile-only model remains the public default.
 
 ## Current workflow commands
 

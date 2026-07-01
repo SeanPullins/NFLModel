@@ -31,8 +31,22 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.55}.wrap{max-w
 <tr><td>Position profile-only raw APEX</td><td>Top challenger</td><td>Worth tracking, but not fully promoted because worst-window behavior remains too weak.</td></tr>
 <tr><td>NCAA production features</td><td class="bad">Experimental</td><td>Available for ablations, not headline.</td></tr>
 <tr><td>APEX+ 3.5x</td><td class="bad">Experimental / not promoted</td><td>Must pass rolling validation gates before becoming headline.</td></tr>
+<tr><td>Pre-draft APEX (ESPN consensus baseline)</td><td class="bad">Measured, no edge yet</td><td>Matches the public consensus board (mean delta -0.004, median +0.002 Spearman, 2011-2021) but does not beat it.</td></tr>
+<tr><td>Consensus board-vs-pick features</td><td>Experimental</td><td>Post-draft only; must beat profile-only on gate metrics before promotion.</td></tr>
 </tbody>
 </table>
+
+<h2 style="margin-top:34px">Pre-draft reality check</h2>
+<p>With ESPN pre-draft boards (2004-2021) wired in, APEX can now be tested as a true before-draft-night forecaster. Three honest findings from the 2011-2021 rolling backtest on drafted players:</p>
+<table>
+<thead><tr><th>Forecaster</th><th>Mean Spearman vs outcome</th><th>Reading</th></tr></thead>
+<tbody>
+<tr><td>Actual draft slot (NFL front offices)</td><td>~0.59</td><td>The strongest public predictor. The draft itself aggregates private medicals, interviews, and workouts.</td></tr>
+<tr><td>ESPN consensus rank (public, pre-draft)</td><td>~0.52</td><td>Public consensus trails the front offices by ~0.07 Spearman.</td></tr>
+<tr><td>Pre-draft APEX (consensus + profile residual)</td><td>~0.52</td><td>Matches public consensus (win rate 6/11); does not yet beat it, and does not beat front offices.</td></tr>
+</tbody>
+</table>
+<div class="note">Residual amplification is catastrophic pre-draft: APEX+ 3.5x loses to the consensus baseline in all 11 years. The disagreement signal that is mildly useful post-draft is mostly noise pre-draft.</div>
 
 <div class="note">
   <b>Current public board command:</b> <code>python src/improve.py --feature-set profile --end-year 2026</code><br>

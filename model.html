@@ -173,11 +173,15 @@ footer{margin-top:26px;color:var(--faint);font-size:11px;line-height:1.7}
   <a class="backlink" href="index.html">&larr; BACK TO THE BOARD</a>
   <header class="masthead">
     <div>
-      <div class="eyebrow">Model documentation &middot; v1.2.1</div>
+      <div class="eyebrow">Model documentation &middot; v1.2.1 (historical)</div>
       <h1>How APEX <span>Works</span></h1>
       <p class="lede">APEX is a two-stage residual model. Stage one is the draft market itself - where a player was picked. Stage two is what the model knows that the market might not. APEX+ is the calibrated combination of the two, and it beats both on out-of-time data.</p>
     </div>
   </header>
+
+  <div style="background:var(--red-soft);border:1px solid var(--red);border-radius:12px;padding:14px 16px;margin:0 0 18px;color:var(--ink)">
+    <b>Validation update:</b> the APEX+ 3.5&times; amplification described in sections 4-5 did <b>not</b> survive regenerated public-source rolling validation (2011-2021 year-by-year backtests). The public board now uses <b>profile-only raw APEX</b> blended conservatively with the market (Conservative 0.50), worth about +0.012 mean Spearman over draft slot with an 8/11 yearly win rate. Amplification and NCAA production features remain experimental. Pre-draft, the model matches ESPN consensus but does not beat it. See the <a href="docs/validation.html">current validation status</a> for the numbers that hold up.
+  </div>
 
   <nav class="toc">
     <div class="label">Contents</div>

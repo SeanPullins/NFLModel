@@ -38,11 +38,25 @@ from pipeline import (
 PRE_DRAFT_MARKET_CANDIDATES = ["expected_pick", "consensus_rank", "mock_avg_pick"]
 
 
-def load_modeling_table(data_dir: str | None = None, enriched_path: str | None = None) -> pd.DataFrame:
+def load_modeling_table(
+    data_dir: str | None = None,
+    enriched_path: str | None = None,
+    end_year: int | None = None,
+) -> pd.DataFrame:
     path = Path(enriched_path) if enriched_path else ENRICHED_FEATURE_FILE
     if path.exists():
-        return pd.read_csv(path)
-    base = load_dataset(data_dir=data_dir)
+        df = pd.read_csv(path)
+        if end_year is not None:
+            max_year = int(pd.to_numeric(df["Year"], errors="coerce").max())
+            if max_year < end_year:
+                raise ValueError(
+                    f"{path} only covers through {max_year} but end_year={end_year}. "
+                    "Rebuild it with: python src/build_features.py --end-year "
+                    f"{end_year}"
+                )
+            df = df[pd.to_numeric(df["Year"], errors="coerce") <= end_year]
+        return df
+    base = load_dataset(data_dir=data_dir, end_year=end_year or 2016)
     enriched, _ = merge_optional_features(base)
     return enriched
 
@@ -158,8 +172,9 @@ def run_backtest(
     enriched_path: str | None,
     apex_plus_factor: float,
     min_coverage: float,
+    end_year: int | None = None,
 ) -> tuple[pd.DataFrame, dict]:
-    df = add_predraft_market(load_modeling_table(data_dir=data_dir, enriched_path=enriched_path))
+    df = add_predraft_market(load_modeling_table(data_dir=data_dir, enriched_path=enriched_path, end_year=end_year))
     rows = []
     for year in range(first_test_year, last_test_year + 1):
         try:
@@ -200,6 +215,7 @@ def main() -> None:
     parser.add_argument("--validation-years", type=int, default=2)
     parser.add_argument("--apex-plus-factor", type=float, default=DEFAULT_APEX_PLUS_FACTOR)
     parser.add_argument("--min-coverage", type=float, default=0.20)
+    parser.add_argument("--end-year", type=int, default=None, help="Last source-data year to allow in the modeling table.")
     parser.add_argument("--data-dir", type=str, default=None)
     parser.add_argument("--features", type=str, default=None, help="Optional path to data/model_features.csv")
     parser.add_argument("--out-dir", type=str, default=str(ROOT / "reports"))
@@ -213,6 +229,7 @@ def main() -> None:
         enriched_path=args.features,
         apex_plus_factor=args.apex_plus_factor,
         min_coverage=args.min_coverage,
+        end_year=args.end_year,
     )
 
     out_dir = Path(args.out_dir)

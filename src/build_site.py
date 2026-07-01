@@ -81,7 +81,10 @@ html = TEMPLATE_PATH.read_text().replace("__DATA__", payload)
 
 for target in TARGETS:
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(html)
+    out = html
+    if target.parent.name == "docs":
+        out = out.replace('href="docs/', 'href="')
+    target.write_text(out)
 
 print("rows:", len(rows), "size:", len(html) // 1024, "KB")
 print("main_score: apex_conservative_050 via apex_score")

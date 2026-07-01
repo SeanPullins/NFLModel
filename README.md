@@ -172,6 +172,15 @@ Current source inputs:
 - `phcs971/nfl-draft-dataset` — combine, draft, career AV, and NCAA production data through 2024.
 - `array-carpenter/nfl-draft-data` — combine/pro-day measurements through 2026.
 - `JackLich10/nfl-draft-data` — ESPN pre-draft boards 2004-2021 (rank + grade), via `src/build_consensus_board.py`.
+- `nflverse/nflverse-data` draft_picks (fallback: `dynastyprocess/data`) — actual draft results for classes newer than phcs971 (2025+), so freshly drafted classes show real picks instead of placeholder "prospect" rows.
+
+Accuracy rules for recent classes:
+
+- Classes with no recorded career value have their outcome (`y`) masked — the
+  board shows "-" instead of a fabricated mid-pack percentile.
+- Combine/pro-day rows that duplicate a drafted player from a neighboring year
+  (same normalized name + position group within 2 years) are dropped as
+  phantom entries.
 
 ## Run from GitHub Actions
 

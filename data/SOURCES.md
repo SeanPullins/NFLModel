@@ -18,9 +18,16 @@ python src/download_source_data.py
   - Combine/pro-day measurements from 2007-2026.
   - Used only as a measurement overlay for combine/pro-day fields.
 
-- `nflverse/nflverse-data`
-  - Draft-pick history reference.
-  - Not currently used for model outcomes.
+- `nflverse/nflverse-data` (draft_picks release)
+  - Actual draft results for classes newer than the phcs971 data (2025+).
+  - Primary source for recent-class picks in `src/download_source_data.py`
+    (`extend_recent_drafts`); complete across all positions.
+  - Career AV is not imported for these classes; outcomes stay masked until
+    the class matures.
+
+- `dynastyprocess/data` (db_playerids.csv)
+  - Fallback source for recent-class draft results when release assets are
+    unreachable. Covers ~210 picks per year but lacks offensive linemen.
 
 - `JackLich10/nfl-draft-data`
   - ESPN pre-draft prospect boards from 2004-2021: overall rank, position rank, and scouting grade.

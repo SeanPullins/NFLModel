@@ -6,7 +6,7 @@ APEX+ uses:
 
 Factor 0.0 is the market baseline. Factor 1.0 is raw APEX. Factors above 1.0
 amplify the residual. This script tests candidate factors and recommends a
-promoted factor only if it passes promotion gates.
+promoted APEX+ factor only if it passes gates and improves on raw APEX.
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from backtest import DEFAULT_APEX_PLUS_FACTOR, run_backtest
+from backtest import run_backtest
 from pipeline import ROOT
 from validation_gates import evaluate_gates
 
@@ -36,22 +36,40 @@ def parse_factors(text: str | None, start: float, stop: float, step: float) -> l
 def summarize_factor(factor: float, summary: pd.DataFrame, gates: dict | None = None) -> dict:
     gate_report = evaluate_gates(summary, delta_col="delta_plus_vs_pick_spearman_drafted", gates=gates)
     raw_gate_report = evaluate_gates(summary, delta_col="delta_raw_vs_pick_spearman_drafted", gates=gates)
+    raw_mean = raw_gate_report.get("checks", {}).get("mean_lift")
+    plus_mean = gate_report.get("checks", {}).get("mean_lift")
+    raw_median = raw_gate_report.get("checks", {}).get("median_lift")
+    plus_median = gate_report.get("checks", {}).get("median_lift")
     return {
         "factor": factor,
         "years_evaluated": int(len(summary)),
-        "apex_plus_mean_lift": gate_report.get("checks", {}).get("mean_lift"),
-        "apex_plus_median_lift": gate_report.get("checks", {}).get("median_lift"),
+        "apex_plus_mean_lift": plus_mean,
+        "apex_plus_median_lift": plus_median,
         "apex_plus_win_rate": gate_report.get("checks", {}).get("win_rate"),
         "apex_plus_worst_window": gate_report.get("checks", {}).get("worst_window"),
         "apex_plus_gate_pass": bool(gate_report.get("pass")),
-        "raw_apex_mean_lift": raw_gate_report.get("checks", {}).get("mean_lift"),
-        "raw_apex_median_lift": raw_gate_report.get("checks", {}).get("median_lift"),
+        "apex_plus_beats_raw_mean": bool(plus_mean is not None and raw_mean is not None and plus_mean > raw_mean),
+        "apex_plus_beats_raw_median": bool(plus_median is not None and raw_median is not None and plus_median >= raw_median),
+        "raw_apex_mean_lift": raw_mean,
+        "raw_apex_median_lift": raw_median,
         "raw_apex_win_rate": raw_gate_report.get("checks", {}).get("win_rate"),
         "raw_apex_worst_window": raw_gate_report.get("checks", {}).get("worst_window"),
     }
 
 
-def choose_promotion(factor_summary: pd.DataFrame, gates: dict | None = None) -> dict:
+def raw_reference(factor_summary: pd.DataFrame) -> dict:
+    if factor_summary.empty:
+        return {}
+    row = factor_summary.iloc[0]
+    return {
+        "mean_lift": float(row["raw_apex_mean_lift"]),
+        "median_lift": float(row["raw_apex_median_lift"]),
+        "win_rate": float(row["raw_apex_win_rate"]),
+        "worst_window": float(row["raw_apex_worst_window"]),
+    }
+
+
+def choose_promotion(factor_summary: pd.DataFrame) -> dict:
     if factor_summary.empty:
         return {
             "promoted_factor": None,
@@ -59,30 +77,30 @@ def choose_promotion(factor_summary: pd.DataFrame, gates: dict | None = None) ->
             "reason": "No factor results were produced.",
         }
 
-    passing = factor_summary[factor_summary["apex_plus_gate_pass"]].copy()
-    if passing.empty:
-        best_raw = factor_summary.iloc[0]
+    eligible = factor_summary[
+        (factor_summary["factor"] > 1.0)
+        & (factor_summary["apex_plus_gate_pass"])
+        & (factor_summary["apex_plus_beats_raw_mean"])
+        & (factor_summary["apex_plus_beats_raw_median"])
+    ].copy()
+
+    if eligible.empty:
         return {
             "promoted_factor": None,
             "headline_model": "raw_apex",
-            "reason": "No APEX+ residual factor passed promotion gates. Use raw APEX as the honest headline until a factor passes.",
-            "raw_apex_reference": {
-                "mean_lift": float(best_raw["raw_apex_mean_lift"]),
-                "median_lift": float(best_raw["raw_apex_median_lift"]),
-                "win_rate": float(best_raw["raw_apex_win_rate"]),
-                "worst_window": float(best_raw["raw_apex_worst_window"]),
-            },
+            "reason": "No amplified APEX+ factor above 1.0 passed gates while also beating raw APEX on mean and median lift.",
+            "raw_apex_reference": raw_reference(factor_summary),
         }
 
-    passing = passing.sort_values(
+    eligible = eligible.sort_values(
         ["apex_plus_mean_lift", "apex_plus_median_lift", "apex_plus_win_rate", "apex_plus_worst_window"],
         ascending=[False, False, False, False],
     )
-    winner = passing.iloc[0]
+    winner = eligible.iloc[0]
     return {
         "promoted_factor": float(winner["factor"]),
         "headline_model": "apex_plus",
-        "reason": "Highest mean lift among APEX+ factors passing promotion gates.",
+        "reason": "Highest mean lift among amplified APEX+ factors passing gates and beating raw APEX.",
         "winner": {
             "factor": float(winner["factor"]),
             "mean_lift": float(winner["apex_plus_mean_lift"]),
@@ -90,6 +108,7 @@ def choose_promotion(factor_summary: pd.DataFrame, gates: dict | None = None) ->
             "win_rate": float(winner["apex_plus_win_rate"]),
             "worst_window": float(winner["apex_plus_worst_window"]),
         },
+        "raw_apex_reference": raw_reference(factor_summary),
     }
 
 

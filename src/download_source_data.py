@@ -11,9 +11,9 @@ Primary source:
 Optional combine/pro-day overlay:
     array-carpenter/nfl-draft-data, data/combine_pro_day.csv
 
-The source CSVs can contain unquoted embedded newlines in a few team/school/name
-fields. The downloader repairs rows by joining continuation lines until the next
-line that begins with a four-digit year.
+The phcs971 source includes NCAA career production columns. This script converts
+those into pre-draft per-game production features and excludes NFL career stats
+from the model input to avoid outcome leakage.
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from pipeline import ROOT
+from pipeline import ROOT, COLLEGE_PRODUCTION_FEATURES
 
 PHCS_NFL_DATA_URL = "https://raw.githubusercontent.com/phcs971/nfl-draft-dataset/main/nfl_data.csv"
 ARRAY_COMBINE_URL = "https://raw.githubusercontent.com/array-carpenter/nfl-draft-data/master/data/combine_pro_day.csv"
@@ -66,8 +66,16 @@ def read_repaired_csv(text: str, delimiter: str) -> pd.DataFrame:
     return pd.read_csv(io.StringIO(repaired), sep=delimiter, low_memory=False)
 
 
-def clean_numeric(series: pd.Series) -> pd.Series:
+def clean_numeric(series: pd.Series | None) -> pd.Series:
+    if series is None:
+        return pd.Series(dtype=float)
     return pd.to_numeric(series, errors="coerce")
+
+
+def safe_div(num: pd.Series, den: pd.Series) -> pd.Series:
+    num = pd.to_numeric(num, errors="coerce").fillna(0.0)
+    den = pd.to_numeric(den, errors="coerce")
+    return np.where(den.gt(0), num / den, 0.0)
 
 
 def normalize_position(pos: object) -> str:
@@ -84,8 +92,55 @@ def normalize_position(pos: object) -> str:
     return mapping.get(text, text or "OTH")
 
 
+def add_college_production_features(base: pd.DataFrame) -> pd.DataFrame:
+    """Create pre-draft production features from NCAA career stats.
+
+    Uses only college fields from the public source. NFL career columns are never
+    used as features because they are the outcome being predicted.
+    """
+    out = base.copy()
+    for col in [
+        "college_games",
+        "college_pass_yds", "college_pass_td", "college_pass_int", "college_pass_cmp_pct",
+        "college_rush_yds", "college_rush_td",
+        "college_rec_yds", "college_rec_td",
+        "college_tackles", "college_sacks", "college_ints", "college_fumbles",
+    ]:
+        if col not in out.columns:
+            out[col] = 0.0
+        out[col] = pd.to_numeric(out[col], errors="coerce").fillna(0.0)
+
+    games = out["college_games"].replace(0, np.nan)
+    out["college_pass_yds_pg"] = safe_div(out["college_pass_yds"], games)
+    out["college_pass_td_pg"] = safe_div(out["college_pass_td"], games)
+    out["college_pass_int_pg"] = safe_div(out["college_pass_int"], games)
+    out["college_pass_cmp_pct"] = pd.to_numeric(out["college_pass_cmp_pct"], errors="coerce").fillna(0.0)
+    out["college_pass_td_int_ratio"] = out["college_pass_td"] / (out["college_pass_int"] + 1.0)
+    out["college_rush_yds_pg"] = safe_div(out["college_rush_yds"], games)
+    out["college_rush_td_pg"] = safe_div(out["college_rush_td"], games)
+    out["college_rec_yds_pg"] = safe_div(out["college_rec_yds"], games)
+    out["college_rec_td_pg"] = safe_div(out["college_rec_td"], games)
+    out["college_tackles_pg"] = safe_div(out["college_tackles"], games)
+    out["college_sacks_pg"] = safe_div(out["college_sacks"], games)
+    out["college_ints_pg"] = safe_div(out["college_ints"], games)
+    out["college_fumbles_pg"] = safe_div(out["college_fumbles"], games)
+    out["college_offensive_yds_pg"] = safe_div(
+        out["college_pass_yds"] + out["college_rush_yds"] + out["college_rec_yds"], games
+    )
+    out["college_total_td_pg"] = safe_div(
+        out["college_pass_td"] + out["college_rush_td"] + out["college_rec_td"], games
+    )
+    out["college_def_playmaking_pg"] = safe_div(
+        out["college_sacks"] + out["college_ints"] + out["college_fumbles"], games
+    )
+
+    for col in COLLEGE_PRODUCTION_FEATURES:
+        out[col] = pd.to_numeric(out[col], errors="coerce").replace([np.inf, -np.inf], np.nan).fillna(0.0)
+    return out
+
+
 def build_from_phcs(phcs: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    base = phcs.copy()
+    base = add_college_production_features(phcs.copy())
     base["Year"] = clean_numeric(base["year"]).astype("Int64")
     base["Player"] = base["name"].astype(str).str.strip()
     base["College"] = base.get("college", "Unknown").fillna("Unknown").astype(str)
@@ -103,10 +158,10 @@ def build_from_phcs(phcs: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
 
     combine = pd.DataFrame(
         {
-            "year": draft["Year"],
-            "player": draft["Player"],
-            "college": draft["College"],
-            "position": draft["Pos"],
+            "year": base.loc[draft.index, "Year"],
+            "player": base.loc[draft.index, "Player"],
+            "college": base.loc[draft.index, "College"],
+            "position": base.loc[draft.index, "Pos"],
             "height": clean_numeric(base.loc[draft.index, "height"]),
             "weight": clean_numeric(base.loc[draft.index, "weight"]),
             "dash": clean_numeric(base.loc[draft.index, "40_yard"]),
@@ -115,6 +170,7 @@ def build_from_phcs(phcs: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
             "broad": clean_numeric(base.loc[draft.index, "broad_jump"]),
             "cone": clean_numeric(base.loc[draft.index, "3_cone"]),
             "shuttle": clean_numeric(base.loc[draft.index, "shuttle"]),
+            **{col: clean_numeric(base.loc[draft.index, col]).fillna(0.0) for col in COLLEGE_PRODUCTION_FEATURES},
         }
     )
     combine = combine[combine["year"].notna() & combine["player"].notna()].copy()
@@ -152,12 +208,16 @@ def overlay_combine(primary: pd.DataFrame, overlay: pd.DataFrame) -> pd.DataFram
     key = ["year", "player"]
     base = primary.set_index(key)
     extra = overlay.set_index(key)
+    # Overlay only measurement fields. Keep phcs NCAA production features as the production source.
     for col in ["college", "position", "height", "weight", "dash", "vert_leap", "bench", "broad", "cone", "shuttle"]:
         if col not in base.columns or col not in extra.columns:
             continue
         base[col] = base[col].combine_first(extra[col])
         base.update(extra[[col]])
     missing = extra.loc[~extra.index.isin(base.index)]
+    for col in COLLEGE_PRODUCTION_FEATURES:
+        if col not in missing.columns:
+            missing[col] = 0.0
     combined = pd.concat([base, missing], axis=0).reset_index()
     return combined.drop_duplicates(key, keep="first")
 
@@ -200,6 +260,7 @@ def main() -> None:
     print(f"Wrote {combine_path} rows={len(combine):,}")
     print("Draft year range:", int(draft["Year"].min()), int(draft["Year"].max()))
     print("Combine year range:", int(combine["year"].min()), int(combine["year"].max()))
+    print("Added NCAA production features:", ", ".join(COLLEGE_PRODUCTION_FEATURES))
 
 
 if __name__ == "__main__":

@@ -32,6 +32,11 @@ jobs:
     permissions:
       contents: write
       actions: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: Check out repo
@@ -132,6 +137,36 @@ jobs:
             git commit -m "Update generated APEX site"
             git push
           fi
+
+      - name: Prepare GitHub Pages artifact
+        if: github.ref == 'refs/heads/main'
+        run: |
+          rm -rf _site
+          mkdir -p _site/docs _site/data
+          cp index.html _site/index.html
+          cp docs/index.html _site/docs/index.html
+          cp docs/validation.html _site/docs/validation.html
+          cp docs/ablation.html _site/docs/ablation.html
+          cp data/apex_board.csv _site/data/apex_board.csv
+          cp reports/rolling_backtest_report.json _site/data/rolling_backtest_report.json || true
+          cp reports/apex_factor_sweep_report.json _site/data/apex_factor_sweep_report.json || true
+          cp reports/nested_factor_backtest_report.json _site/data/nested_factor_backtest_report.json || true
+          touch _site/.nojekyll
+
+      - name: Configure GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        uses: actions/configure-pages@v5
+
+      - name: Upload GitHub Pages artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        id: deployment
+        uses: actions/deploy-pages@v4
 
       - name: Show report summaries
         if: always()

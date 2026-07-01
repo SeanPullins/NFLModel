@@ -92,6 +92,48 @@ def evaluate_holdout(df: pd.DataFrame, feature_set: str = DEFAULT_FEATURE_SET) -
     return scored, metrics, {"feature_stats": feature_stats, "shrink": shrink, "features": feats}
 
 
+TIER_THRESHOLDS = {"star": 0.85, "starter": 0.70, "contributor": 0.45}
+
+
+def make_implied_pick(glob) -> callable:
+    """Invert the pick->expected-outcome curve: the draft slot whose historical
+    value matches a given grade ("this player graded like a pick #X")."""
+    picks = np.arange(1, 263)
+    exp_curve = glob.predict(-picks)  # non-increasing in pick
+    increasing = exp_curve[::-1]
+
+    def implied(scores: np.ndarray) -> np.ndarray:
+        idx = np.searchsorted(increasing, np.asarray(scores, dtype=float), side="left")
+        idx = np.clip(idx, 0, len(picks) - 1)
+        return picks[::-1][idx].astype(float)
+
+    return implied
+
+
+def fit_tier_probabilities(train: pd.DataFrame, score_col: str = "apex", bins: int = 15):
+    """Historical base rates of career tiers for players with similar grades.
+
+    In-sample calibration on mature classes only: for each grade bucket, what
+    share of past players landed in each within-class outcome tier?
+    """
+    hist = train[train["y"].notna() & train["Pick"].lt(263)][[score_col, "y"]].dropna().copy()
+    hist["bin"] = pd.qcut(hist[score_col], q=bins, duplicates="drop")
+    rates = hist.groupby("bin", observed=True)["y"].agg(
+        p_star=lambda s: float((s >= TIER_THRESHOLDS["star"]).mean()),
+        p_starter=lambda s: float(((s >= TIER_THRESHOLDS["starter"]) & (s < TIER_THRESHOLDS["star"])).mean()),
+        p_contrib=lambda s: float(((s >= TIER_THRESHOLDS["contributor"]) & (s < TIER_THRESHOLDS["starter"])).mean()),
+        p_bust=lambda s: float((s < TIER_THRESHOLDS["contributor"]).mean()),
+    )
+    edges = [interval.right for interval in rates.index][:-1]
+
+    def probabilities(scores: pd.Series) -> pd.DataFrame:
+        idx = np.searchsorted(np.asarray(edges, dtype=float), pd.to_numeric(scores, errors="coerce").to_numpy())
+        idx = np.clip(idx, 0, len(rates) - 1)
+        return rates.iloc[idx].reset_index(drop=True)
+
+    return probabilities
+
+
 def fit_production_board(df: pd.DataFrame, shrink: dict[str, float], feature_set: str = DEFAULT_FEATURE_SET) -> tuple[pd.DataFrame, dict]:
     """Fit on all available historical data and write the model board."""
     feats = model_features_for(feature_set)
@@ -104,6 +146,16 @@ def fit_production_board(df: pd.DataFrame, shrink: dict[str, float], feature_set
     scored["exp_at_pick"] = base(scored)
     scored["talent_resid"] = resid(scored)
     scored["surplus"] = scored["apex"] - scored["exp_at_pick"]
+
+    implied = make_implied_pick(glob)
+    scored["implied_pick"] = implied(scored["apex"].to_numpy())
+    actual_pick = scored["Pick"].where(scored["Pick"].lt(263))
+    scored["pick_delta"] = actual_pick - scored["implied_pick"]
+
+    tier_probs = fit_tier_probabilities(scored)
+    probs = tier_probs(scored["apex"]).set_index(scored.index)
+    for col in ["p_star", "p_starter", "p_contrib", "p_bust"]:
+        scored[col] = probs[col]
 
     out = pd.DataFrame(
         {
@@ -120,6 +172,12 @@ def fit_production_board(df: pd.DataFrame, shrink: dict[str, float], feature_set
             "exp_at_pick": scored["exp_at_pick"],
             "talent_resid": scored["talent_resid"],
             "surplus": scored["surplus"],
+            "implied_pick": scored["implied_pick"],
+            "pick_delta": scored["pick_delta"],
+            "p_star": scored["p_star"],
+            "p_starter": scored["p_starter"],
+            "p_contrib": scored["p_contrib"],
+            "p_bust": scored["p_bust"],
             "feature_set": feature_set,
             "model_status": "headline_profile_only_raw_apex",
         }

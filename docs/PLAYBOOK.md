@@ -107,6 +107,10 @@ and rerun step 3 to re-verify the edge still holds.
 - `apex_score` — headline score (conservative 0.50 blend of market and model).
 - `apex_edge` — disagreement with the market; the most actionable output.
   Positive late-round edge = surplus candidate; negative early edge = bust risk.
+- `implied_pick` / `pick_delta` — the same disagreement in draft-slot currency:
+  "graded like pick #X, went #Y". Built by inverting the pick-to-outcome curve.
+- `p_star`..`p_bust` — historical tier base rates for the player's grade
+  bucket; the projection panel on each player card.
 - Trust position-level edges more where the by-position backtest shows lift;
   be most skeptical of QB scores.
 

@@ -72,6 +72,7 @@ def fit_position_residuals(
     *,
     feats: list[str],
     min_train_rows: int,
+    min_extra_coverage: float = 0.25,
 ) -> tuple[Callable[[pd.DataFrame], np.ndarray], dict]:
     global_resid, _ = make_resid(train, base, feats=feats)
     models = {}
@@ -88,12 +89,18 @@ def fit_position_residuals(
                 "reason": f"n_train < {min_train_rows}",
             }
             continue
-        resid, _ = make_resid(subset, base, feats=feats)
-        models[family] = (positions, resid, feats)
+        # Per-family production features (e.g. college QBR for QBs) join the
+        # residual model when the family's training coverage is high enough.
+        # They stay raw; LightGBM handles NaN for players missing the data.
+        extras = available_extra_features(subset, positions, min_extra_coverage)
+        family_feats = feats + extras
+        resid, _ = make_resid(subset, base, feats=family_feats)
+        models[family] = (positions, resid, family_feats)
         report["families"][family] = {
             "trained": True,
             "n_train": int(len(subset)),
-            "features": feats,
+            "features": family_feats,
+            "extra_features": extras,
         }
 
     def predict(part: pd.DataFrame) -> np.ndarray:

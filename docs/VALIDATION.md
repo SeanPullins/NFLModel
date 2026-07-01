@@ -62,6 +62,23 @@ board-vs-pick disagreement):
 Verdict: better median, worse mean and worst-window. Fails promotion rules;
 stays experimental.
 
+## College QBR experiment (position-family challenger, 2011-2021)
+
+`src/build_qb_production.py` adds ESPN college Total QBR features (2004+) to
+the QB family inside the position-family challenger model:
+
+| Metric | position profile-only | + QB college QBR |
+|---|---:|---:|
+| Mean lift vs pick | +0.0131 | +0.0139 |
+| Median lift | +0.0171 | +0.0171 |
+| Win rate | 9/11 | 10/11 |
+| Worst year | -0.0515 | -0.0515 |
+
+QBR data only reaches 25% training coverage from the 2016 test year onward;
+every year it is active improves or ties. Kept in the challenger configuration.
+The challenger still fails the strict worst-window gate (2011), so the global
+profile-only model remains the public default.
+
 ## Current workflow commands
 
 The workflow builds a broad board through 2026 but validates mature outcome windows through 2021:

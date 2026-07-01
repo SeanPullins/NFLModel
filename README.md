@@ -271,8 +271,9 @@ A single higher headline Spearman is not enough. If no APEX+ factor passes gates
 Highest-impact next data additions:
 
 1. ~~consensus-board / expected-pick history for true pre-draft forecasting~~ **done** — ESPN boards 2004-2021 via `src/build_consensus_board.py`; extend with mock-draft aggregates (e.g. Grinding the Mocks) when a public archive exists
-2. pressure-to-sack and age-adjusted QB efficiency features
-3. route-level WR/TE features such as YPRR and target share
-4. EDGE pressure rate and pass-rush win rate
-5. OL pressure allowed and snap data
-6. DB coverage and missed-tackle metrics
+2. ~~QB efficiency features~~ **done** — ESPN college Total QBR (2004+) via `src/build_qb_production.py`; improves the position-family challenger (mean lift +0.0131 → +0.0139, 10/11 win years). True pressure-to-sack still wanted.
+3. season-by-season production trajectory (final-season surge vs career average) from `JackLich10/nfl-draft-data` `college_statistics.csv` — downloaded and vetted, not yet featurized
+4. route-level WR/TE features such as YPRR and target share
+5. EDGE pressure rate and pass-rush win rate
+6. OL pressure allowed and snap data
+7. DB coverage and missed-tackle metrics

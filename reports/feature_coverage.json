@@ -2,9 +2,18 @@
   "files": {
     "qb_production": {
       "path": "/home/user/NFLModel/data/production/qb_production.csv",
-      "exists": false,
-      "rows": 0,
-      "features_present": [],
+      "exists": true,
+      "rows": 229,
+      "features_present": [
+        "qb_career_plays",
+        "qb_seasons",
+        "qb_final_qbr",
+        "qb_best_qbr",
+        "qb_epa_per_play",
+        "qb_final_epa_per_play",
+        "qb_sack_epa_per_play",
+        "qb_run_epa_per_play"
+      ],
       "features_missing": [
         "qb_starts",
         "qb_age_adj_epa_per_play",
@@ -16,7 +25,7 @@
         "qb_turnover_worthy_play_rate",
         "qb_rush_epa_per_game"
       ],
-      "usable": false
+      "usable": true
     },
     "wr_production": {
       "path": "/home/user/NFLModel/data/production/wr_production.csv",
@@ -155,6 +164,38 @@
     }
   },
   "feature_coverage": {
+    "qb_career_plays": {
+      "coverage": 0.02501737317581654,
+      "non_null": 216
+    },
+    "qb_seasons": {
+      "coverage": 0.02501737317581654,
+      "non_null": 216
+    },
+    "qb_final_qbr": {
+      "coverage": 0.02501737317581654,
+      "non_null": 216
+    },
+    "qb_best_qbr": {
+      "coverage": 0.02501737317581654,
+      "non_null": 216
+    },
+    "qb_epa_per_play": {
+      "coverage": 0.02501737317581654,
+      "non_null": 216
+    },
+    "qb_final_epa_per_play": {
+      "coverage": 0.02501737317581654,
+      "non_null": 216
+    },
+    "qb_sack_epa_per_play": {
+      "coverage": 0.02501737317581654,
+      "non_null": 216
+    },
+    "qb_run_epa_per_play": {
+      "coverage": 0.02501737317581654,
+      "non_null": 216
+    },
     "espn_pos_rank": {
       "coverage": 0.6063238359972203,
       "non_null": 5235

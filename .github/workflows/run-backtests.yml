@@ -11,6 +11,7 @@ on:
       - "src/pipeline.py"
       - "src/download_source_data.py"
       - "src/build_consensus_board.py"
+      - "src/build_qb_production.py"
       - "src/build_features.py"
       - "src/feature_registry.py"
       - "src/improve.py"
@@ -69,9 +70,10 @@ jobs:
           python src/add_conservative_scores.py --factors "0.25,0.50,0.75"
           python src/build_site.py
 
-      - name: Build ESPN pre-draft consensus board
+      - name: Build ESPN pre-draft consensus board and QB production features
         run: |
           python src/build_consensus_board.py
+          python src/build_qb_production.py
           python src/build_features.py --end-year 2021
           python src/predraft_market.py --write-template --check
 

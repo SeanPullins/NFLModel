@@ -23,6 +23,15 @@ on:
         options:
           - "false"
           - "true"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/run-backtests.yml"
+      - "src/download_source_data.py"
+      - "src/backtest.py"
+      - "src/position_models.py"
+      - "src/validation_gates.py"
 
 jobs:
   backtest:
@@ -34,6 +43,14 @@ jobs:
     steps:
       - name: Check out repo
         uses: actions/checkout@v4
+
+      - name: Set default inputs for push-triggered runs
+        id: vars
+        run: |
+          echo "first_test_year=${{ inputs.first_test_year || '2011' }}" >> "$GITHUB_OUTPUT"
+          echo "last_test_year=${{ inputs.last_test_year || '2021' }}" >> "$GITHUB_OUTPUT"
+          echo "apex_plus_factor=${{ inputs.apex_plus_factor || '3.5' }}" >> "$GITHUB_OUTPUT"
+          echo "skip_array_combine=${{ inputs.skip_array_combine || 'false' }}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -48,7 +65,7 @@ jobs:
 
       - name: Download and normalize public source data
         run: |
-          if [ "${{ inputs.skip_array_combine }}" = "true" ]; then
+          if [ "${{ steps.vars.outputs.skip_array_combine }}" = "true" ]; then
             python src/download_source_data.py --skip-array-combine
           else
             python src/download_source_data.py
@@ -57,16 +74,16 @@ jobs:
       - name: Run rolling APEX+ backtest
         run: |
           python src/backtest.py \
-            --first-test-year "${{ inputs.first_test_year }}" \
-            --last-test-year "${{ inputs.last_test_year }}" \
-            --apex-plus-factor "${{ inputs.apex_plus_factor }}"
+            --first-test-year "${{ steps.vars.outputs.first_test_year }}" \
+            --last-test-year "${{ steps.vars.outputs.last_test_year }}" \
+            --apex-plus-factor "${{ steps.vars.outputs.apex_plus_factor }}"
 
       - name: Run position-specific residual backtest
         run: |
           python src/position_models.py \
-            --first-test-year "${{ inputs.first_test_year }}" \
-            --last-test-year "${{ inputs.last_test_year }}" \
-            --apex-plus-factor "${{ inputs.apex_plus_factor }}"
+            --first-test-year "${{ steps.vars.outputs.first_test_year }}" \
+            --last-test-year "${{ steps.vars.outputs.last_test_year }}" \
+            --apex-plus-factor "${{ steps.vars.outputs.apex_plus_factor }}"
 
       - name: Run validation gates
         run: |

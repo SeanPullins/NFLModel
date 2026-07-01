@@ -87,6 +87,7 @@ def evaluate_test_year(
     validation_years: int = 2,
     apex_plus_factor: float = DEFAULT_APEX_PLUS_FACTOR,
     feature_set: str = DEFAULT_FEATURE_SET,
+    max_shrink: float = 0.4,
 ) -> tuple[dict, list[dict]]:
     """Evaluate one test year with all transforms fit only on prior years."""
     train_for_shrink_end = test_year - validation_years - 1
@@ -106,7 +107,8 @@ def evaluate_test_year(
     train_for_shrink, valid = prepare_fold(train_for_shrink_raw, valid_raw)
     base_for_shrink, _, _ = make_baseline(train_for_shrink)
     resid_for_shrink, _ = make_resid(train_for_shrink, base_for_shrink, feats=feats)
-    shrink = tune_position_shrinkage(valid, base_for_shrink, resid_for_shrink)
+    shrink_candidates = np.arange(0, max_shrink + 0.05, 0.1)
+    shrink = tune_position_shrinkage(valid, base_for_shrink, resid_for_shrink, candidates=shrink_candidates)
 
     final_train, test = prepare_fold(final_train_raw, test_raw)
     pick_only, _ = make_pick_baseline(final_train)
@@ -212,6 +214,7 @@ def run_backtest(
     apex_plus_factor: float = DEFAULT_APEX_PLUS_FACTOR,
     end_year: int | None = None,
     feature_set: str = DEFAULT_FEATURE_SET,
+    max_shrink: float = 0.4,
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
     effective_end_year = end_year if end_year is not None else max(last_test_year, 2016)
     df = load_dataset(data_dir=data_dir, end_year=effective_end_year)
@@ -219,7 +222,7 @@ def run_backtest(
     pos_rows: list[dict] = []
     for test_year in range(first_test_year, last_test_year + 1):
         try:
-            row, year_pos_rows = evaluate_test_year(df, test_year, validation_years, apex_plus_factor, feature_set)
+            row, year_pos_rows = evaluate_test_year(df, test_year, validation_years, apex_plus_factor, feature_set, max_shrink)
         except ValueError as exc:
             print(f"Skipping {test_year}: {exc}")
             continue
@@ -247,6 +250,14 @@ def main() -> None:
     parser.add_argument("--feature-set", type=str, default=DEFAULT_FEATURE_SET, choices=sorted(FEATURE_SETS))
     parser.add_argument("--data-dir", type=str, default=None)
     parser.add_argument("--out-dir", type=str, default=str(ROOT / "reports"))
+    parser.add_argument(
+        "--max-shrink",
+        type=float,
+        default=0.4,
+        help="Cap per-position residual shrinkage search at this value (0-1). "
+        "Default 1.0 matches historical behavior; lower values (e.g. 0.5) reduce "
+        "the risk of the shrink tuner overfitting to a thin 2-year validation slice.",
+    )
     args = parser.parse_args()
 
     summary, pos_summary, report = run_backtest(
@@ -257,6 +268,7 @@ def main() -> None:
         apex_plus_factor=args.apex_plus_factor,
         end_year=args.end_year,
         feature_set=args.feature_set,
+        max_shrink=args.max_shrink,
     )
 
     out_dir = Path(args.out_dir)

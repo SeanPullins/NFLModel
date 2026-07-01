@@ -104,6 +104,8 @@ CONSENSUS_FEATURES: tuple[str, ...] = (
     "n_mocks",
     "n_big_boards",
     "nfl_com_grade",
+    "espn_grade",
+    "espn_pos_rk",
     "recruiting_stars",
     "recruiting_rank",
     "combine_invite",

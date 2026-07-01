@@ -14,23 +14,24 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.55}.wrap{max-w
 <a href="index.html">&larr; Back to board</a>
 <div class="eyebrow">APEX validation · current status</div>
 <h1>Validation status</h1>
-<p>The public board now uses profile-only raw APEX. NCAA production and APEX+ amplification remain experimental because ablation and factor-sweep validation did not justify promotion.</p>
+<p>The public board now uses profile-only raw APEX with capped position shrinkage. NCAA production, real ESPN pre-draft consensus data, and APEX+ amplification remain tested-but-not-promoted because rolling-window validation did not justify promotion. This page reflects a real regenerated rolling 2011-2021 backtest, not a copied holdout claim.</p>
 
 <div class="cards">
-  <div class="card"><b class="good">Profile</b><small>Default board</small></div>
-  <div class="card"><b>Raw</b><small>Headline model</small></div>
-  <div class="card"><b class="bad">APEX+</b><small>Not promoted</small></div>
-  <div class="card"><b class="bad">Production</b><small>Experimental</small></div>
+  <div class="card"><b class="good">+0.0146</b><small>Mean Spearman lift vs. pick-only</small></div>
+  <div class="card"><b class="good">82%</b><small>Rolling-window win rate (9/11)</small></div>
+  <div class="card"><b class="good">-0.0177</b><small>Worst rolling window (2011)</small></div>
+  <div class="card"><b class="good">PASS</b><small>validation_gates.py result</small></div>
 </div>
 
 <table>
 <thead><tr><th>Model / factor</th><th>Status</th><th>Rule</th></tr></thead>
 <tbody>
 <tr><td>Pick-only market</td><td>Baseline</td><td>Every model must beat draft slot.</td></tr>
-<tr><td>Global profile-only raw APEX</td><td class="good">Public/default board</td><td>Combine/profile + age + college encoding.</td></tr>
+<tr><td>Global profile-only raw APEX, capped shrinkage</td><td class="good">Public/default board</td><td>Combine/profile + age + college encoding. Passes its own promotion gate.</td></tr>
 <tr><td>Position profile-only raw APEX</td><td>Top challenger</td><td>Worth tracking, but not fully promoted because worst-window behavior remains too weak.</td></tr>
-<tr><td>NCAA production features</td><td class="bad">Experimental</td><td>Available for ablations, not headline.</td></tr>
-<tr><td>APEX+ 3.5x</td><td class="bad">Experimental / not promoted</td><td>Must pass rolling validation gates before becoming headline.</td></tr>
+<tr><td>NCAA production features</td><td class="bad">Tested, not promoted</td><td>Available for ablations, not headline.</td></tr>
+<tr><td>Real ESPN pre-draft consensus rank/grade</td><td class="bad">Tested, not promoted</td><td>Underperforms the actual draft market as a pre-draft predictor; adds nothing on top of the post-draft model.</td></tr>
+<tr><td>APEX+ 3.5x</td><td class="bad">Tested, not promoted</td><td>Underperforms raw APEX in the real rolling backtest.</td></tr>
 </tbody>
 </table>
 
@@ -39,7 +40,7 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.55}.wrap{max-w
   <b>Current validation command:</b> <code>python src/backtest.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --feature-set profile</code>
 </div>
 
-<p><a href="ablation.html">Feature ablation results</a> · <a href="VALIDATION.md">Read validation guide</a> · <a href="model.html">How APEX works</a></p>
+<p><a href="ablation.html">Feature ablation results</a> · <a href="https://github.com/SeanPullins/NFLModel/blob/main/docs/VALIDATION.md">Read validation guide</a> · <a href="https://github.com/SeanPullins/NFLModel/blob/main/docs/MODEL_CARD.md">How APEX works</a></p>
 </div>
 </body>
 </html>

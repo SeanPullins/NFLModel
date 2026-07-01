@@ -21,6 +21,9 @@ on:
       - "src/position_ensemble_backtest.py"
       - "src/predraft_market.py"
       - "src/predraft_backtest.py"
+      - "src/download_consensus_data.py"
+      - "src/feature_registry.py"
+      - "src/build_features.py"
       - "src/ablation_backtest.py"
       - "src/validation_gates.py"
       - "data/consensus/**"
@@ -66,8 +69,20 @@ jobs:
           python src/add_conservative_scores.py --factors "0.25,0.50,0.75"
           python src/build_site.py
 
+      - name: Download real pre-draft consensus data (ESPN pre-draft ranks/grades)
+        run: python src/download_consensus_data.py
+
       - name: Check pre-draft consensus scaffold
         run: python src/predraft_market.py --write-template --check
+
+      - name: Build enriched feature table with optional consensus/production data
+        run: python src/build_features.py
+
+      - name: Run true pre-draft forecasting backtest
+        run: |
+          python src/predraft_backtest.py \
+            --first-test-year 2011 \
+            --last-test-year 2021
 
       - name: Run profile-only raw APEX backtest
         run: |
@@ -120,7 +135,7 @@ jobs:
 
       - name: Run validation gates
         run: |
-          python src/validation_gates.py reports/rolling_backtest_summary.csv --delta-col delta_raw_vs_pick_spearman_drafted --out reports/rolling_validation_gates.json
+          python src/validation_gates.py reports/rolling_backtest_summary.csv --delta-col delta_raw_vs_pick_spearman_drafted --out reports/rolling_validation_gates.json --enforce
           python src/validation_gates.py reports/position_model_backtest_summary.csv --delta-col delta_raw_vs_pick_spearman_drafted --out reports/position_model_validation_gates.json
           python src/validation_gates.py reports/position_ensemble_backtest_summary.csv --delta-col delta_ensemble_vs_pick_spearman_drafted --out reports/position_ensemble_validation_gates.json
           python src/validation_gates.py reports/nested_factor_backtest_summary.csv --delta-col delta_nested_vs_pick_spearman_drafted --out reports/nested_factor_validation_gates.json
@@ -187,6 +202,8 @@ jobs:
           cat reports/feature_ablation_summary.csv || true
           echo "=== predraft_market_status.json ==="
           cat reports/predraft_market_status.json || true
+          echo "=== predraft_backtest_report.json ==="
+          cat reports/predraft_backtest_report.json || true
           echo "=== validation gates ==="
           cat reports/rolling_validation_gates.json || true
           cat reports/position_model_validation_gates.json || true

@@ -26,18 +26,20 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.55}.wrap{max-w
 <table>
 <thead><tr><th>Rank</th><th>Feature set</th><th class="num">Mean lift</th><th class="num">Median lift</th><th class="num">Win rate</th><th class="num">Worst year</th><th>Decision</th></tr></thead>
 <tbody>
-<tr><td>1</td><td><b>Position profile only</b></td><td class="num good">+0.0131</td><td class="num good">+0.0171</td><td class="num good">9 / 11</td><td class="num bad">-0.0515</td><td>Top challenger; not fully promoted</td></tr>
-<tr><td>2</td><td>Position profile + production</td><td class="num good">+0.0129</td><td class="num good">+0.0091</td><td class="num good">9 / 11</td><td class="num bad">-0.0448</td><td>Production hurts median</td></tr>
-<tr><td>3</td><td>Global profile + production</td><td class="num good">+0.0122</td><td class="num good">+0.0192</td><td class="num">7 / 11</td><td class="num bad">-0.0429</td><td>Not headline</td></tr>
-<tr><td>4</td><td><b>Global profile only</b></td><td class="num good">+0.0117</td><td class="num good">+0.0138</td><td class="num good">8 / 11</td><td class="num bad">-0.0328</td><td>Default public board</td></tr>
-<tr><td>5</td><td>Production only</td><td class="num good">+0.0092</td><td class="num good">+0.0162</td><td class="num good">8 / 11</td><td class="num bad">-0.0566</td><td>Weak alone</td></tr>
-<tr><td>6</td><td>Defensive production only</td><td class="num good">+0.0076</td><td class="num good">+0.0130</td><td class="num good">8 / 11</td><td class="num bad">-0.0568</td><td>Weak</td></tr>
-<tr><td>7</td><td>Offensive production only</td><td class="num good">+0.0068</td><td class="num good">+0.0161</td><td class="num good">8 / 11</td><td class="num bad">-0.0526</td><td>Weakest</td></tr>
+<tr><td>1</td><td><b>Global profile only, capped shrinkage (current)</b></td><td class="num good">+0.0146</td><td class="num good">+0.0181</td><td class="num good">9 / 11</td><td class="num good">-0.0177</td><td>Default public board - now passes its own promotion gate</td></tr>
+<tr><td>2*</td><td>Position profile only</td><td class="num good">+0.0131</td><td class="num good">+0.0171</td><td class="num good">9 / 11</td><td class="num bad">-0.0515</td><td>Top challenger; not fully promoted</td></tr>
+<tr><td>3*</td><td>Position profile + production</td><td class="num good">+0.0129</td><td class="num good">+0.0091</td><td class="num good">9 / 11</td><td class="num bad">-0.0448</td><td>Production hurts median</td></tr>
+<tr><td>4*</td><td>Global profile + production</td><td class="num good">+0.0122</td><td class="num good">+0.0192</td><td class="num">7 / 11</td><td class="num bad">-0.0429</td><td>Not headline</td></tr>
+<tr><td>5*</td><td>Global profile only, uncapped shrinkage</td><td class="num good">+0.0117</td><td class="num good">+0.0138</td><td class="num good">8 / 11</td><td class="num bad">-0.0328</td><td>Superseded by row 1 - failed the worst-window gate</td></tr>
+<tr><td>6*</td><td>Production only</td><td class="num good">+0.0092</td><td class="num good">+0.0162</td><td class="num good">8 / 11</td><td class="num bad">-0.0566</td><td>Weak alone</td></tr>
+<tr><td>7*</td><td>Defensive production only</td><td class="num good">+0.0076</td><td class="num good">+0.0130</td><td class="num good">8 / 11</td><td class="num bad">-0.0568</td><td>Weak</td></tr>
+<tr><td>8*</td><td>Offensive production only</td><td class="num good">+0.0068</td><td class="num good">+0.0161</td><td class="num good">8 / 11</td><td class="num bad">-0.0526</td><td>Weakest</td></tr>
 </tbody>
 </table>
 
 <div class="note">
-  <b>Decision:</b> public board = <code>profile</code> raw APEX. Production and APEX+ stay experimental. Position-specific profile-only is the top challenger but still fails the strict worst-window gate.
+  <b>Decision:</b> public board = <code>profile</code> raw APEX with capped position shrinkage (row 1). Production and APEX+ stay tested-but-not-promoted. Real ESPN pre-draft consensus data was also tested via <code>src/predraft_backtest.py</code> and did not clear the bar either - see the <a href="https://github.com/SeanPullins/NFLModel/blob/main/docs/MODEL_CARD.md">model card</a>.<br><br>
+  <b>*</b> Rows 2-8 were captured before the shrinkage-cap fix (see row 1 vs row 5) and have not been rerun under the same capped-shrinkage methodology yet - treat them as directional, not a fully fair current comparison. Position profile only in particular would need to be retested since its own worst-window (-0.0515) suggests it has the same overfit risk the cap fixed for the global model.
 </div>
 
 <p><a href="validation.html">Validation status</a> · <a href="FEATURES.md">Feature guide</a></p>

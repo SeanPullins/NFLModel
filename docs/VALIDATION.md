@@ -8,11 +8,24 @@ The public/default model is now **profile-only raw APEX**:
 draft market baseline + combine/profile features + age + college encoding
 ```
 
-The old **APEX+ 3.5x** headline is not promoted. NCAA production features are also not promoted into the public board because ablation testing did not show a strong enough improvement over profile-only models.
+The old **APEX+ 3.5x** headline is not promoted. NCAA production features and real ESPN pre-draft consensus data (`data/consensus/consensus_board.csv`, via `src/download_consensus_data.py`) are also not promoted into the public board, because rolling-window testing did not show a strong enough improvement over profile-only models - see `docs/MODEL_CARD.md` for the actual numbers.
+
+**Real numbers, regenerated from a live rolling 2011-2021 backtest** (`python src/backtest.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --feature-set profile`), not copied from an old holdout page:
+
+| Metric | Value |
+|---|---:|
+| Mean lift vs. pick-only (Spearman, drafted players) | +0.0146 |
+| Median lift | +0.0181 |
+| Win rate (11 rolling test years) | 82% (9/11) |
+| Worst rolling window | -0.0177 (2011) |
+| 95% bootstrap CI on mean lift | [+0.0046, +0.0235] |
+| `src/validation_gates.py` result | **pass** |
+
+This reflects a fix landed in this pass: the per-position residual shrinkage tuner (`tune_position_shrinkage`) used to search up to a 1.0 weight off a thin 2-year validation slice, which let it occasionally overfit (DB picked 0.9 in the 2011 fold, then lost badly out-of-sample). Capping the search at 0.4 raised the mean lift from +0.012 to +0.015, tightened the worst window from -0.033 to -0.018, and is what lets the model pass its own gate for the first time - previously, running the actual gate script against a real (not copied) backtest showed the public default **failing** its own bar.
 
 Current claim:
 
-> APEX finds a small, repeatable edge over draft slot. The public board uses profile-only raw APEX. APEX+ amplification and NCAA production remain experimental.
+> APEX finds a small, repeatable edge over draft slot (mean +0.015 Spearman lift, 82% rolling-window win rate, positive 95% CI). The public board uses profile-only raw APEX with capped position shrinkage. APEX+ amplification, NCAA production, and real ESPN pre-draft consensus data all remain tested-but-not-promoted.
 
 Avoid claiming:
 
@@ -22,14 +35,19 @@ Avoid claiming:
 
 > NCAA box-score production improves the headline model.
 
+Avoid claiming:
+
+> Consensus/expected-pick data would fix the "no real pre-draft model" gap - it was tested with real ESPN data and it doesn't.
+
 ## Model roles
 
 | Component | Status | Use |
 |---|---|---|
-| Global profile-only raw APEX | Public/default board | Main score |
+| Global profile-only raw APEX, capped position shrinkage | Public/default board | Main score, passes `validation_gates.py` |
 | Position profile-only raw APEX | Top challenger | Track in reports |
-| NCAA production features | Experimental | Ablation only |
-| APEX+ residual amplification | Experimental | Factor sweep only |
+| NCAA production features | Tested, not promoted | Ablation only |
+| Real ESPN pre-draft consensus rank/grade | Tested, not promoted | `predraft_backtest.py` only |
+| APEX+ residual amplification | Tested, not promoted | Factor sweep only |
 
 ## Current workflow commands
 

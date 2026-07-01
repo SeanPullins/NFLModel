@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 import pandas as pd
@@ -108,19 +109,31 @@ def main() -> None:
     parser.add_argument("--candidate-col", default=None)
     parser.add_argument("--delta-col", default=DEFAULT_RAW_DELTA_COL)
     parser.add_argument("--out", default=None)
+    parser.add_argument(
+        "--enforce",
+        action="store_true",
+        help="Exit with a non-zero status (failing the CI job) if the gate check does not pass. "
+        "Default is report-only, since not every gate here backs a promoted model.",
+    )
     args = parser.parse_args()
 
     summary = pd.read_csv(args.summary_csv)
     if args.candidate_col:
         report = compare_candidates(summary, args.candidate_col, args.delta_col)
+        passed = report.get("recommendation", {}).get("promote") is not None
     else:
         report = evaluate_gates(summary, args.delta_col)
+        passed = bool(report.get("pass"))
 
     text = json.dumps(report, indent=2)
     if args.out:
         Path(args.out).parent.mkdir(parents=True, exist_ok=True)
         Path(args.out).write_text(text)
     print(text)
+
+    if args.enforce and not passed:
+        print(f"GATE FAILED for {args.summary_csv} ({args.delta_col}) - failing build.")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

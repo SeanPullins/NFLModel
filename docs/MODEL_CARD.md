@@ -102,11 +102,11 @@ The most useful model outputs are likely:
 
 ## Known limitations
 
-1. **Production data is missing.**  
-   The current model is too reliant on athletic/profile data. Position-specific production should be the next major feature family.
+1. **Production data does not clear the bar.**  
+   NCAA box-score production features (`profile_plus_production` and related ablations) were tested against the profile-only default across the same rolling 2011-2021 window and did not beat it on average lift, median lift, win rate, and worst-window behavior. They remain available for experiments but are not part of the public board.
 
-2. **Actual draft pick is unavailable pre-draft.**  
-   A true pre-draft model needs consensus rank or expected draft position.
+2. **Real pre-draft consensus data has now been tested, and it does not beat the market either.**  
+   `src/download_consensus_data.py` pulls ESPN's actual pre-draft overall rank, position rank, and grade (from `JackLich10/nfl-draft-data`, ~96% match coverage on 2011-2021 drafted players) into `data/consensus/consensus_board.csv`, and `src/predraft_backtest.py` uses it to run a genuine pre-draft-only forecast (no actual draft slot as input). Result: ESPN's pre-draft rank alone is a **weaker** predictor of career outcome than the real draft market in every one of the 6 fully-covered rolling test years (2011-2016), by a wide margin in some years (e.g. 2016: 0.446 vs. 0.581 Spearman). Adding ESPN grade/position-rank as extra features on top of the existing post-draft profile model does not help either (mean delta ~0, 50% win rate over 2011-2016). Read literally: a single outlet's public pre-draft big board carries less information than the aggregate of 32 teams' actual draft decisions, and once real draft slot is known, ESPN's grade adds nothing on top of it. A true pre-draft model that beats the post-draft model would need non-public inputs (team medical grades, private workouts, character/makeup interviews) that are out of scope for this project's public data sources.
 
 3. **QB needs a separate model.**  
    Generic combine/profile features are not enough for quarterback forecasting.
@@ -114,20 +114,22 @@ The most useful model outputs are likely:
 4. **Career AV is noisy.**  
    It is a useful public target, but it is not a complete measure of player quality.
 
-5. **Small headline lifts can be fragile.**  
-   APEX should be judged over rolling backtests, not one holdout window.
+5. **Small headline lifts can be fragile, and the per-position shrinkage tuner can overfit thin validation slices.**  
+   Rolling-window testing found the residual shrinkage tuner (which picks a 0-1 weight per position from just a 2-year validation slice) would occasionally pick weights near 1.0 off a handful of players, then blow up out-of-sample - most visibly DB in the 2011 test year (shrink=0.9, then -0.08 Spearman versus pick-only). Capping the search at 0.4 (`src/pipeline.py::tune_position_shrinkage`) raised mean lift over pick-only from +0.012 to +0.015 Spearman, raised win rate from 73% to 82%, and tightened the worst rolling window from -0.033 to -0.018 - which is also what lets the model clear its own promotion gate (`src/validation_gates.py`) for the first time. APEX should still be judged over rolling backtests, not one holdout window.
 
 6. **Future watchlist rows need a reproducible generator.**  
    The dashboard can contain future prospects, but source-of-truth generation should be scripted and versioned.
 
 ## Recommended next model version
 
-APEX v2 should add:
+Tested and not promoted (see Known limitations above): consensus big board / expected draft slot, college production metrics. Both are available for ablations via `--feature-set` and `src/predraft_backtest.py`, but neither beat the profile-only default.
 
-- consensus big board / expected draft slot
-- college production metrics
-- position-specific submodels
+APEX v2 should instead prioritize:
+
+- a dedicated QB submodel
+- position-specific submodels validated on worst-window behavior, not just mean lift (the existing `position_profile_only` challenger has this exact problem)
 - uncertainty intervals
 - tier labels
 - draft-year freshness checks
 - mature-outcome-only validation gates
+- non-public inputs if ever available (team medical grades, private workout data) - the public data sources tested so far (combine profile, NCAA production, ESPN pre-draft consensus) are close to exhausted

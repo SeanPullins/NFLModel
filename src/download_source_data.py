@@ -32,7 +32,12 @@ from pipeline import ROOT, COLLEGE_PRODUCTION_FEATURES
 
 PHCS_NFL_DATA_URL = "https://raw.githubusercontent.com/phcs971/nfl-draft-dataset/main/nfl_data.csv"
 ARRAY_COMBINE_URL = "https://raw.githubusercontent.com/array-carpenter/nfl-draft-data/master/data/combine_pro_day.csv"
-NFLVERSE_DRAFT_PICKS_URL = "https://raw.githubusercontent.com/nflverse/nflverse-data/releases/draft_picks.csv"
+# Recent draft results (classes newer than the phcs971 outcome data). The
+# nflverse release file is complete (all positions); the dynastyprocess file is
+# a fallback that lacks offensive linemen but works when release assets are
+# unreachable.
+NFLVERSE_DRAFT_PICKS_URL = "https://github.com/nflverse/nflverse-data/releases/download/draft_picks/draft_picks.csv"
+DYNASTYPROCESS_IDS_URL = "https://raw.githubusercontent.com/dynastyprocess/data/master/files/db_playerids.csv"
 
 YEAR_RE = re.compile(r"^\d{4}[;,]")
 
@@ -205,6 +210,77 @@ def build_from_phcs(phcs: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     return draft, combine
 
 
+def _recent_from_nflverse(text: str, after_year: int) -> pd.DataFrame:
+    df = pd.read_csv(io.StringIO(text), low_memory=False)
+    df = df[pd.to_numeric(df["season"], errors="coerce") > after_year].copy()
+    return pd.DataFrame(
+        {
+            "Year": pd.to_numeric(df["season"], errors="coerce").astype(int),
+            "Player": df["pfr_player_name"].astype(str).str.strip(),
+            "College": df.get("college", "Unknown").fillna("Unknown").astype(str),
+            "Pos": df.get("position", "OTH").fillna("OTH").astype(str).str.upper(),
+            "Pick": pd.to_numeric(df["pick"], errors="coerce"),
+            "Rnd": pd.to_numeric(df["round"], errors="coerce"),
+            "Team": df.get("team"),
+            "Age": pd.to_numeric(df.get("age"), errors="coerce"),
+            "CarAV": 0.0,
+        }
+    )
+
+
+def _recent_from_dynastyprocess(text: str, after_year: int) -> pd.DataFrame:
+    df = pd.read_csv(io.StringIO(text), low_memory=False)
+    df = df[pd.to_numeric(df["draft_year"], errors="coerce") > after_year].copy()
+    df = df[pd.to_numeric(df["draft_ovr"], errors="coerce").notna()]
+    return pd.DataFrame(
+        {
+            "Year": pd.to_numeric(df["draft_year"], errors="coerce").astype(int),
+            "Player": df["name"].astype(str).str.strip(),
+            "College": df.get("college", "Unknown").fillna("Unknown").astype(str),
+            "Pos": df.get("position", "OTH").fillna("OTH").astype(str).str.upper(),
+            "Pick": pd.to_numeric(df["draft_ovr"], errors="coerce"),
+            "Rnd": pd.to_numeric(df["draft_round"], errors="coerce"),
+            "Team": df.get("team"),
+            "Age": np.nan,
+            "CarAV": 0.0,
+        }
+    )
+
+
+def extend_recent_drafts(draft: pd.DataFrame) -> pd.DataFrame:
+    """Append draft classes newer than the phcs971 outcome data.
+
+    Without this, classes whose draft already happened (e.g. 2025/2026) show up
+    as pick-less "prospects", which is wrong. CarAV stays 0 for appended years;
+    add_targets masks outcomes for classes with no recorded career value.
+    """
+    after_year = int(draft["Year"].max())
+    recent = None
+    for url, parse in (
+        (NFLVERSE_DRAFT_PICKS_URL, _recent_from_nflverse),
+        (DYNASTYPROCESS_IDS_URL, _recent_from_dynastyprocess),
+    ):
+        try:
+            print(f"Downloading recent draft results: {url}")
+            candidate = parse(download_text(url, retries=1), after_year)
+            if len(candidate) >= 100:
+                recent = candidate
+                print(f"Using recent draft results from {url}: {len(candidate)} rows")
+                break
+            print(f"Skipping {url}: only {len(candidate)} usable rows")
+        except Exception as exc:
+            print(f"WARNING: recent draft results from {url} failed: {exc}")
+    if recent is None:
+        print("WARNING: no recent draft results source available; classes after "
+              f"{after_year} will appear as prospects without picks.")
+        return draft
+
+    recent = recent[recent["Player"].notna() & recent["Pick"].notna()]
+    recent = recent.sort_values(["Year", "Pick"]).drop_duplicates(["Year", "Player"], keep="first")
+    print("Appended recent draft classes:", recent.groupby("Year").size().to_dict())
+    return pd.concat([draft, recent], ignore_index=True)
+
+
 def normalize_array_combine(array_df: pd.DataFrame) -> pd.DataFrame:
     cols = array_df.columns
     height_col = "Height (in)" if "Height (in)" in cols else "height"
@@ -264,6 +340,7 @@ def main() -> None:
         (out_dir / "source_phcs_nfl_data.csv").write_text(phcs_text)
     phcs = read_repaired_csv(phcs_text, ";")
     draft, combine = build_from_phcs(phcs)
+    draft = extend_recent_drafts(draft)
 
     if not args.skip_array_combine:
         try:

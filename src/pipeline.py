@@ -31,7 +31,7 @@ POSMAP = {
     "DE": "EDGE", "EDGE": "EDGE", "NT": "DT", "DT": "DT",
     "C": "OL", "G": "OL", "OG": "OL", "OT": "OL", "T": "OL", "OL": "OL",
     "QB": "QB", "WR": "WR", "TE": "TE",
-    "K": "ST", "P": "ST", "LS": "ST",
+    "K": "ST", "P": "ST", "LS": "ST", "PK": "ST", "PN": "ST",
 }
 
 ATHLETIC_FEATURES = [
@@ -164,6 +164,12 @@ def add_targets(df: pd.DataFrame) -> pd.DataFrame:
     out["hit"] = (
         out.groupby("Year")["CarAV"].rank(pct=True, ascending=False) <= 0.10
     ).astype(int)
+    # Classes with no recorded career value yet (e.g. just-drafted years) have
+    # no real outcome. Ranking all-zero CarAV would fabricate identical
+    # mid-pack "actual" percentiles, so mask the target for those classes.
+    immature = out.groupby("Year")["CarAV"].transform("max").eq(0)
+    out.loc[immature, "y"] = np.nan
+    out.loc[immature, "hit"] = 0
     return out
 
 
@@ -203,6 +209,7 @@ def load_dataset(
         ud["CarAV"] = 0.0
         ud["Pick"] = 263.0
         ud["Rnd"] = 8
+        ud = drop_phantom_undrafted(ud, dr)
         keep = ["Year", "Player", "Pos", "pos_g", "Pick", "Rnd", "CarAV", "key", *merge_metrics]
         if "college" in ud.columns:
             keep.append("college")
@@ -243,6 +250,32 @@ def merge_consensus_board(df: pd.DataFrame, data_dir: str | Path | None = None) 
     covered = out["Year"].isin(board_years)
     out.loc[covered & out["consensus_rank"].isna(), "consensus_rank"] = OFF_BOARD_CONSENSUS_RANK
     return out
+
+
+def drop_phantom_undrafted(ud: pd.DataFrame, dr: pd.DataFrame) -> pd.DataFrame:
+    """Remove stale combine/pro-day rows that duplicate a drafted player.
+
+    Measurement sources sometimes list a player under a neighboring year (e.g.
+    a 2024 draftee also appearing as a 2025 "prospect"). If an undrafted row
+    shares a normalized name and position group with a drafted player within
+    two years, treat it as a phantom duplicate rather than a new prospect.
+    """
+    drafted = dr[["Player", "Year", "pos_g"]].copy()
+    drafted["name_key"] = drafted["Player"].map(norm)
+    drafted_index = set(
+        (row.name_key, int(row.Year) + offset, str(row.pos_g))
+        for row in drafted.itertuples()
+        for offset in (-2, -1, 0, 1, 2)
+    )
+    name_keys = ud["Player"].map(norm)
+    mask_phantom = [
+        (name_key, int(year), str(pos_g)) in drafted_index
+        for name_key, year, pos_g in zip(name_keys, ud["Year"], ud["pos_g"])
+    ]
+    n_dropped = int(sum(mask_phantom))
+    if n_dropped:
+        print(f"Dropped {n_dropped} phantom undrafted rows duplicating drafted players in neighboring years")
+    return ud.loc[[not m for m in mask_phantom]].copy()
 
 
 def college_enc(train: pd.DataFrame, part: pd.DataFrame, k: int = 12) -> pd.Series:

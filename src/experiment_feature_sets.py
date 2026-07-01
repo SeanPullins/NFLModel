@@ -85,6 +85,7 @@ def evaluate_year_feature_set(
     row.update(flatten_metrics("market", metric_row(scored, "market")))
     row.update(flatten_metrics("apex_raw", metric_row(scored, "apex_raw")))
     row.update(flatten_metrics("apex_plus", metric_row(scored, "apex_plus")))
+    row["delta_raw_vs_pick_spearman_drafted"] = row["apex_raw_spearman_drafted"] - row["pick_only_spearman_drafted"]
     row["delta_plus_vs_pick_spearman_drafted"] = row["apex_plus_spearman_drafted"] - row["pick_only_spearman_drafted"]
     row["delta_plus_vs_market_spearman_drafted"] = row["apex_plus_spearman_drafted"] - row["market_spearman_drafted"]
     row["delta_plus_vs_raw_spearman_drafted"] = row["apex_plus_spearman_drafted"] - row["apex_raw_spearman_drafted"]
@@ -110,8 +111,9 @@ def run_experiment(first_test_year: int, last_test_year: int, validation_years: 
 
     summary = pd.DataFrame(rows)
     report = {}
-    for feature_set_name, group in summary.groupby("feature_set") if not summary.empty else []:
-        report[feature_set_name] = aggregate_report(group, first_test_year, last_test_year, validation_years, apex_plus_factor)
+    if not summary.empty:
+        for feature_set_name, group in summary.groupby("feature_set"):
+            report[feature_set_name] = aggregate_report(group, first_test_year, last_test_year, validation_years, apex_plus_factor)
 
     if len(report) == 2:
         a = report["profile_only"]["apex_plus_vs_pick"]["mean"]

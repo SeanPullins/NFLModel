@@ -79,6 +79,22 @@ every year it is active improves or ties. Kept in the challenger configuration.
 The challenger still fails the strict worst-window gate (2011), so the global
 profile-only model remains the public default.
 
+## Bust-avoidance stress test (2011-2021)
+
+Bust = drafted-peer career percentile < 0.45 among top-100 picks (base rate
+~20%). Rolling out-of-time backtest:
+
+| Metric | Slot-implied odds | Trait model |
+|---|---:|---:|
+| Mean AUC | 0.702 | 0.713 |
+| Top-10 flag precision | 34% | 37% |
+| AUC win years | - | 6/11 |
+
+Strongest red-flag traits on all mature classes (bust rate, worst vs best
+quintile): consensus reach 33%/4%, ESPN grade 33%/4%, age 23+ 26%/13%,
+weak college pedigree 27%/16%, poor agility 23%/13%. See
+`reports/bust_trait_table.csv`.
+
 ## Season-trajectory features: investigated, not implemented (2026-07)
 
 Public season-by-season college stats (JackLich10 `college_statistics.csv` and

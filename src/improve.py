@@ -36,6 +36,7 @@ HOLDOUT_VALID_START = 2010
 HOLDOUT_VALID_END = 2011
 HOLDOUT_TEST_START = 2012
 HOLDOUT_TEST_END = 2014
+DEFAULT_BOARD_END_YEAR = 2026
 
 
 def evaluate_holdout(df: pd.DataFrame, feature_set: str = DEFAULT_FEATURE_SET) -> tuple[pd.DataFrame, dict, dict]:
@@ -139,7 +140,7 @@ def fit_production_board(df: pd.DataFrame, shrink: dict[str, float], feature_set
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--feature-set", type=str, default=DEFAULT_FEATURE_SET, choices=sorted(FEATURE_SETS))
-    parser.add_argument("--end-year", type=int, default=2021)
+    parser.add_argument("--end-year", type=int, default=DEFAULT_BOARD_END_YEAR)
     args = parser.parse_args()
 
     df = load_dataset(end_year=args.end_year)

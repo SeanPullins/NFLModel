@@ -1,12 +1,24 @@
 # APEX Draft Model
 
-Two-stage residual NFL draft model + interactive scouting dashboard covering historical classes and forward-looking prospect watchlists.
+Two-stage residual NFL draft model + interactive scouting dashboard for historical NFL draft classes and forward-looking prospect watchlists.
 
-The live v1.2.1 board reports **APEX+ Spearman ρ 0.697** on the 2012-14 official holdout versus **0.615** for the pick-only market baseline. Across the four published rolling validation windows from 2008-2020, APEX+ improves over the market in **4 of 4 windows**, with **average lift +0.083** and **median lift +0.080**.
+## Current honest validation status
 
-## What changed in v1.3 scaffold
+The regenerated public-source backtest showed that **raw APEX has a small edge**, but the old **APEX+ 3.5× residual amplification did not reproduce the earlier headline result**. Until a residual factor passes promotion gates, the honest headline model is **raw APEX**, not APEX+.
 
-This version adds the infrastructure needed to improve accuracy honestly:
+Current rule:
+
+> APEX+ is experimental. Raw APEX remains the baseline headline unless `src/sweep_apex_factor.py` finds a factor that passes mean, median, win-rate, and worst-window gates.
+
+## What changed in v1.4 validation fix
+
+- **Removed the hidden year cap** by adding `--end-year` to the backtest scripts.
+- **Rolling validation can now truly test 2011-2021** instead of silently stopping at 2016.
+- **Added APEX+ factor sweep** with `src/sweep_apex_factor.py`.
+- **Promotion is gated**: a factor is promoted only if it passes validation gates.
+- **Dashboard/docs are being downgraded away from the old 0.697 APEX+ headline** until regenerated results justify it.
+
+## Existing v1.3 scaffold
 
 - **Optional production feature ingestion** via `src/build_features.py`.
 - **Feature registry** for QB/WR/RB/TE/OL/EDGE/DT/LB/DB production columns and consensus-market columns.
@@ -17,48 +29,14 @@ This version adds the infrastructure needed to improve accuracy honestly:
 - **Manual GitHub Action runner** via `.github/workflows/run-backtests.yml`.
 - **Feature documentation** in `docs/FEATURES.md`.
 
-## Existing v1.2+ improvements
-
-- **Fold-safe college encoding** — college strength is fit on the training fold only, then mapped to validation/test/prospect rows.
-- **Fold-safe athletic normalization** — position z-scores are learned from the training fold only instead of the full dataframe.
-- **Repo-relative paths** — scripts now read from `data/` or `APEX_DATA_DIR` instead of hardcoded scratch paths.
-- **Rolling backtests** — `src/backtest.py` reports raw APEX and APEX+ versus pick-only/market baselines.
-- **APEX+ validation artifact** — committed CSV/JSON summaries show average and median lift across rolling windows.
-- **Public validation page** — `docs/validation.html` shows the rolling-window scoreboard and links to downloadable CSV/JSON.
-- **Experiment harness** — `src/experiment_feature_sets.py` tests whether adding post-draft interaction features improves the residual before promoting the change.
-
-## Live dashboard
-
-Deploy free on GitHub Pages:
-
-```bash
-git init && git add . && git commit -m "APEX v1.3"
-gh repo create apex-draft-model --public --source=. --push
-```
-
-Then: repo **Settings → Pages → Source: main / `/docs`**.
-
-The dashboard reads `data/apex_board.csv`, builds a searchable board, and displays pick-vs-outcome, surplus, and player-level scoring views.
-
-Useful public pages:
-
-- `docs/index.html` — board
-- `docs/model.html` — model explanation
-- `docs/validation.html` — rolling validation summary
-- `docs/FEATURES.md` — production/consensus feature guide
-- `docs/rolling_backtest_summary.csv` — downloadable validation CSV
-- `docs/rolling_backtest_report.json` — downloadable validation JSON
-
 ## Architecture
 
 1. **Market baseline** — isotonic regression from pick → outcome, with optional per-position blending.
-2. **Athletic/profile residual** — 5-seed bagged LightGBM on position-normalized combine/profile features, age, and shrunken college encoding.
+2. **Raw APEX residual model** — 5-seed bagged LightGBM on position-normalized combine/profile features, age, and shrunken college encoding.
 3. **Per-position shrinkage** — residual weight tuned by position on an earlier validation fold, then applied to the out-of-time test fold.
-4. **APEX+ residual amplification** — headline projection uses `market + 3.5 × (raw APEX - market)`, clipped to a 1-99 percentile range.
+4. **APEX+ experimental residual amplification** — `market + factor × (raw APEX - market)`, clipped to a 1-99 percentile range. This is not promoted unless the factor sweep passes gates.
 
 **Target:** within-class Career AV percentile. This is a ranking target, not a calibrated projection of exact career value.
-
-**Important interpretation:** APEX should be judged by whether it improves the rank ordering of prospects over the draft market. The strongest claim is not one holdout score; it is repeated lift over rolling out-of-time windows.
 
 ## Repo layout
 
@@ -68,17 +46,18 @@ src/
   download_source_data.py      downloads public source data and writes pipeline raw inputs
   feature_registry.py          optional production/consensus feature definitions
   build_features.py            builds data/model_features.csv from optional feature files
-  improve.py                   v1.2 train + original 2012-14 holdout evaluation
-  backtest.py                  rolling out-of-time validation, including APEX+
+  improve.py                   train + original holdout evaluation
+  backtest.py                  rolling out-of-time validation with --end-year support
+  sweep_apex_factor.py         sweeps APEX+ residual factors and gates promotion
   experiment_feature_sets.py   compares profile-only vs postdraft-interaction residual features
   predraft_backtest.py         evaluates true pre-draft market/prospect forecasting
-  position_models.py           tests position-family residual models
+  position_models.py           tests position-family residual models with --end-year support
   validation_gates.py          promotion checks for candidate models
   build_site.py                static dashboard builder
   template.html                dashboard template
 
 .github/workflows/
-  run-backtests.yml            manual Action: download sources, run backtests, upload reports
+  run-backtests.yml            downloads sources, runs backtests, factor sweep, gates, uploads reports
 
 data/
   apex_board.csv      generated board used by dashboard
@@ -89,33 +68,13 @@ data/
   consensus/          optional consensus-board / expected-pick CSVs
   SOURCES.md          raw-data source notes
 
-docs/
-  index.html                     GitHub Pages dashboard
-  model.html                     model explanation
-  validation.html                rolling validation page
-  FEATURES.md                    feature upgrade guide
-  rolling_backtest_summary.csv   public validation CSV
-  rolling_backtest_report.json   public validation JSON
-  MODEL_CARD.md                  model assumptions, limits, validation protocol
-  VALIDATION.md                  validation guidance and interpretation
-
-models/
-  generated LightGBM/isotonic artifacts after running src/improve.py
-
 reports/
-  generated holdout, rolling backtest, feature coverage, and experiment outputs
+  generated holdout, rolling backtest, factor sweep, feature coverage, and experiment outputs
 ```
 
 ## Raw data setup
 
-The training scripts expect these raw files:
-
-```text
-draft_data.csv
-combine_data_pfr_with_stats.csv
-```
-
-Build them automatically from public source repos:
+Build raw files automatically from public source repos:
 
 ```bash
 python src/download_source_data.py
@@ -133,126 +92,53 @@ Current source inputs:
 - `phcs971/nfl-draft-dataset` → merged combine, draft, career AV, and NCAA data through 2024.
 - `array-carpenter/nfl-draft-data` → combine/pro-day measurements through 2026.
 
-You can also point to your own raw-data folder:
-
-```bash
-export APEX_DATA_DIR=/path/to/raw-data
-```
-
-Source notes are in `data/SOURCES.md`.
-
 ## Run from GitHub Actions
 
-After merging the workflow, use:
+Go to:
 
 ```text
 GitHub repo → Actions → Run APEX Backtests → Run workflow
 ```
 
-Defaults:
-
-```text
-first_test_year = 2011
-last_test_year = 2021
-apex_plus_factor = 3.5
-skip_array_combine = false
-```
-
-The workflow downloads source data, runs rolling backtests, runs position-specific backtests, applies validation gates, and uploads a report artifact named `apex-backtest-reports`.
-
-## Add production / consensus data
-
-Create templates:
+The workflow runs:
 
 ```bash
-python src/build_features.py --write-templates
+python src/download_source_data.py
+python src/backtest.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --apex-plus-factor 3.5
+python src/sweep_apex_factor.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --factors "0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3,3.25,3.5"
+python src/position_models.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --apex-plus-factor 3.5
+python src/validation_gates.py reports/rolling_backtest_summary.csv --out reports/rolling_validation_gates.json
+python src/validation_gates.py reports/position_model_backtest_summary.csv --out reports/position_model_validation_gates.json
 ```
 
-Fill any optional files under:
+It uploads an artifact named:
 
 ```text
-data/production/
-data/consensus/
+apex-backtest-reports
 ```
 
-Then build the enriched feature table:
-
-```bash
-python src/build_features.py
-```
-
-This writes:
-
-```text
-data/model_features.csv
-reports/feature_coverage.json
-```
-
-## Retrain current production board
+## Local validation commands
 
 ```bash
 pip install -r requirements.txt
 python src/download_source_data.py
-python src/improve.py
+python src/backtest.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --apex-plus-factor 3.5
+python src/sweep_apex_factor.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --factors "0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3,3.25,3.5"
+python src/position_models.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --apex-plus-factor 3.5
 ```
 
-This writes:
-
-```text
-data/apex_board.csv
-models/apex_resid_*.txt
-models/apex_baseline_and_transforms.pkl
-reports/holdout_2012_2014_metrics.json
-reports/holdout_2012_2014_scored.csv
-```
-
-## Rolling validation
-
-```bash
-python src/backtest.py --first-test-year 2011 --last-test-year 2021 --apex-plus-factor 3.5
-```
-
-This writes:
+Key outputs:
 
 ```text
 reports/rolling_backtest_summary.csv
-reports/rolling_backtest_by_position.csv
 reports/rolling_backtest_report.json
-```
-
-The key number to watch is:
-
-```text
-delta_plus_vs_pick_spearman_drafted
-```
-
-Positive means APEX+ ranked drafted players better than the pick-only market baseline for that test year.
-
-## Accuracy experiments
-
-Feature-set experiment:
-
-```bash
-python src/experiment_feature_sets.py --first-test-year 2011 --last-test-year 2021 --apex-plus-factor 3.5
-```
-
-Position-specific residual experiment:
-
-```bash
-python src/position_models.py --first-test-year 2011 --last-test-year 2021 --apex-plus-factor 3.5
-```
-
-Pre-draft forecasting experiment:
-
-```bash
-python src/predraft_backtest.py --first-test-year 2011 --last-test-year 2021 --apex-plus-factor 3.5
-```
-
-Promotion gates:
-
-```bash
-python src/validation_gates.py reports/position_model_backtest_summary.csv
-python src/validation_gates.py reports/feature_set_experiment_summary.csv --candidate-col feature_set
+reports/apex_factor_sweep_summary.csv
+reports/apex_factor_sweep_by_year.csv
+reports/apex_factor_sweep_report.json
+reports/position_model_backtest_summary.csv
+reports/position_model_backtest_report.json
+reports/rolling_validation_gates.json
+reports/position_model_validation_gates.json
 ```
 
 ## Promotion rule
@@ -265,9 +151,9 @@ Promote a candidate only if it improves:
 - worst-window behavior
 - practical draft metrics such as precision@32 / precision@64
 
-A single higher headline Spearman is not enough.
+A single higher headline Spearman is not enough. If no APEX+ factor passes gates, the public claim stays with **raw APEX**.
 
-## Roadmap
+## Next data additions
 
 Highest-impact next data additions:
 

@@ -10,7 +10,7 @@ Build that file with:
 
 Then run:
 
-    python src/position_models.py --first-test-year 2011 --last-test-year 2021
+    python src/position_models.py --first-test-year 2011 --last-test-year 2021 --end-year 2021
 """
 from __future__ import annotations
 
@@ -39,11 +39,14 @@ from pipeline import (
 )
 
 
-def load_modeling_table(data_dir: str | None = None, enriched_path: str | None = None) -> pd.DataFrame:
+def load_modeling_table(data_dir: str | None = None, enriched_path: str | None = None, end_year: int | None = None) -> pd.DataFrame:
     path = Path(enriched_path) if enriched_path else ENRICHED_FEATURE_FILE
     if path.exists():
-        return pd.read_csv(path)
-    base = load_dataset(data_dir=data_dir)
+        df = pd.read_csv(path)
+        if end_year is not None and "Year" in df.columns:
+            df = df[pd.to_numeric(df["Year"], errors="coerce") <= end_year].copy()
+        return df
+    base = load_dataset(data_dir=data_dir, end_year=end_year if end_year is not None else 2016)
     enriched, _ = merge_optional_features(base)
     return enriched
 
@@ -195,8 +198,10 @@ def run_backtest(
     apex_plus_factor: float,
     min_train_rows: int,
     min_coverage: float,
+    end_year: int | None = None,
 ) -> tuple[pd.DataFrame, dict]:
-    df = load_modeling_table(data_dir=data_dir, enriched_path=enriched_path)
+    effective_end_year = end_year if end_year is not None else max(last_test_year, 2016)
+    df = load_modeling_table(data_dir=data_dir, enriched_path=enriched_path, end_year=effective_end_year)
     rows = []
     fit_reports = {}
     for year in range(first_test_year, last_test_year + 1):
@@ -215,13 +220,15 @@ def run_backtest(
         rows.append(row)
         fit_reports[str(year)] = fit_report
         print(
-            f"{year}: position APEX+={row['position_apex_plus_spearman_drafted']:.3f} "
-            f"vs pick={row['pick_only_spearman_drafted']:.3f} "
-            f"delta={row['delta_plus_vs_pick_spearman_drafted']:.3f}"
+            f"{year}: position raw={row['position_apex_raw_spearman_drafted']:.3f} "
+            f"position APEX+={row['position_apex_plus_spearman_drafted']:.3f} "
+            f"pick={row['pick_only_spearman_drafted']:.3f} "
+            f"raw_delta={row['delta_raw_vs_pick_spearman_drafted']:.3f} "
+            f"plus_delta={row['delta_plus_vs_pick_spearman_drafted']:.3f}"
         )
 
     summary = pd.DataFrame(rows)
-    report = aggregate_report(summary, first_test_year, last_test_year, validation_years, apex_plus_factor) if not summary.empty else {}
+    report = aggregate_report(summary, first_test_year, last_test_year, validation_years, apex_plus_factor, effective_end_year) if not summary.empty else {}
     report["model_type"] = "position_specific_residuals"
     report["fit_reports_by_year"] = fit_reports
     return summary, report
@@ -231,6 +238,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--first-test-year", type=int, default=2011)
     parser.add_argument("--last-test-year", type=int, default=2021)
+    parser.add_argument("--end-year", type=int, default=None, help="Last source-data year to load. Defaults to max(last-test-year, 2016).")
     parser.add_argument("--validation-years", type=int, default=2)
     parser.add_argument("--apex-plus-factor", type=float, default=DEFAULT_APEX_PLUS_FACTOR)
     parser.add_argument("--min-train-rows", type=int, default=300)
@@ -249,6 +257,7 @@ def main() -> None:
         apex_plus_factor=args.apex_plus_factor,
         min_train_rows=args.min_train_rows,
         min_coverage=args.min_coverage,
+        end_year=args.end_year,
     )
 
     out_dir = Path(args.out_dir)

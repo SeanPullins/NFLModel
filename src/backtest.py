@@ -2,10 +2,10 @@
 
 Examples:
     python src/backtest.py
-    APEX_DATA_DIR=/path/to/raw python src/backtest.py --first-test-year 2011 --last-test-year 2016
+    APEX_DATA_DIR=/path/to/raw python src/backtest.py --first-test-year 2011 --last-test-year 2021 --end-year 2021
     python src/backtest.py --apex-plus-factor 3.5
 
-The key output is the paired lift of APEX+ versus the pick-only market baseline.
+The key output is the paired lift of raw APEX and APEX+ versus the pick-only market baseline.
 """
 from __future__ import annotations
 
@@ -136,6 +136,7 @@ def evaluate_test_year(
     row.update(flatten_metrics("apex_raw", metric_row(scored, "apex_raw")))
     row.update(flatten_metrics("apex_plus", metric_row(scored, "apex_plus")))
     row["delta_raw_vs_pick_spearman_drafted"] = row["apex_raw_spearman_drafted"] - row["pick_only_spearman_drafted"]
+    row["delta_market_vs_pick_spearman_drafted"] = row["market_spearman_drafted"] - row["pick_only_spearman_drafted"]
     row["delta_plus_vs_pick_spearman_drafted"] = row["apex_plus_spearman_drafted"] - row["pick_only_spearman_drafted"]
     row["delta_plus_vs_raw_spearman_drafted"] = row["apex_plus_spearman_drafted"] - row["apex_raw_spearman_drafted"]
     row["delta_plus_vs_market_spearman_drafted"] = row["apex_plus_spearman_drafted"] - row["market_spearman_drafted"]
@@ -154,6 +155,7 @@ def evaluate_test_year(
                 "market_spearman": safe_spearman(group["market"], group["y"]),
                 "apex_raw_spearman": safe_spearman(group["apex_raw"], group["y"]),
                 "apex_plus_spearman": safe_spearman(group["apex_plus"], group["y"]),
+                "delta_raw_vs_pick": safe_spearman(group["apex_raw"], group["y"]) - safe_spearman(group["pick_only"], group["y"]),
                 "delta_plus_vs_pick": safe_spearman(group["apex_plus"], group["y"]) - safe_spearman(group["pick_only"], group["y"]),
                 "shrink": shrink.get(str(pos), 0.4),
             }
@@ -162,7 +164,7 @@ def evaluate_test_year(
     return row, pos_rows
 
 
-def aggregate_report(summary: pd.DataFrame, first_test_year: int, last_test_year: int, validation_years: int, apex_plus_factor: float) -> dict:
+def aggregate_report(summary: pd.DataFrame, first_test_year: int, last_test_year: int, validation_years: int, apex_plus_factor: float, data_end_year: int | None = None) -> dict:
     deltas_plus = summary["delta_plus_vs_pick_spearman_drafted"].tolist() if not summary.empty else []
     deltas_raw = summary["delta_raw_vs_pick_spearman_drafted"].tolist() if not summary.empty else []
     deltas_plus_vs_raw = summary["delta_plus_vs_raw_spearman_drafted"].tolist() if not summary.empty else []
@@ -181,13 +183,14 @@ def aggregate_report(summary: pd.DataFrame, first_test_year: int, last_test_year
             "delta_plus_vs_pick_spearman_drafted": float(worst["delta_plus_vs_pick_spearman_drafted"]),
         }
 
-    return {
+    report = {
         "first_test_year": first_test_year,
         "last_test_year": last_test_year,
         "validation_years": validation_years,
         "years_evaluated": int(len(summary)),
         "apex_plus_factor": apex_plus_factor,
         "primary_metric": "delta_plus_vs_pick_spearman_drafted",
+        "recommended_headline_metric": "apex_raw_vs_pick until an APEX+ factor passes promotion gates",
         "apex_plus_vs_pick": {
             **paired_summary(summary.get("delta_plus_vs_pick_spearman_drafted", pd.Series(dtype=float))),
             "bootstrap_ci": bootstrap_ci(deltas_plus),
@@ -203,6 +206,9 @@ def aggregate_report(summary: pd.DataFrame, first_test_year: int, last_test_year
         "best_year": best_year,
         "worst_year": worst_year,
     }
+    if data_end_year is not None:
+        report["data_end_year"] = int(data_end_year)
+    return report
 
 
 def run_backtest(
@@ -211,8 +217,10 @@ def run_backtest(
     validation_years: int,
     data_dir: str | None,
     apex_plus_factor: float = DEFAULT_APEX_PLUS_FACTOR,
+    end_year: int | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
-    df = load_dataset(data_dir=data_dir)
+    effective_end_year = end_year if end_year is not None else max(last_test_year, 2016)
+    df = load_dataset(data_dir=data_dir, end_year=effective_end_year)
 
     rows: list[dict] = []
     pos_rows: list[dict] = []
@@ -225,21 +233,24 @@ def run_backtest(
         rows.append(row)
         pos_rows.extend(year_pos_rows)
         print(
-            f"{test_year}: APEX+ drafted Spearman={row['apex_plus_spearman_drafted']:.3f} "
-            f"vs pick={row['pick_only_spearman_drafted']:.3f} "
-            f"delta={row['delta_plus_vs_pick_spearman_drafted']:.3f}"
+            f"{test_year}: raw APEX drafted Spearman={row['apex_raw_spearman_drafted']:.3f} "
+            f"APEX+={row['apex_plus_spearman_drafted']:.3f} "
+            f"pick={row['pick_only_spearman_drafted']:.3f} "
+            f"raw_delta={row['delta_raw_vs_pick_spearman_drafted']:.3f} "
+            f"plus_delta={row['delta_plus_vs_pick_spearman_drafted']:.3f}"
         )
 
     summary = pd.DataFrame(rows)
     pos_summary = pd.DataFrame(pos_rows)
-    report = aggregate_report(summary, first_test_year, last_test_year, validation_years, apex_plus_factor)
+    report = aggregate_report(summary, first_test_year, last_test_year, validation_years, apex_plus_factor, effective_end_year)
     return summary, pos_summary, report
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--first-test-year", type=int, default=2011)
-    parser.add_argument("--last-test-year", type=int, default=2016)
+    parser.add_argument("--last-test-year", type=int, default=2021)
+    parser.add_argument("--end-year", type=int, default=None, help="Last source-data year to load. Defaults to max(last-test-year, 2016).")
     parser.add_argument("--validation-years", type=int, default=2)
     parser.add_argument("--apex-plus-factor", type=float, default=DEFAULT_APEX_PLUS_FACTOR)
     parser.add_argument("--data-dir", type=str, default=None)
@@ -252,6 +263,7 @@ def main() -> None:
         validation_years=args.validation_years,
         data_dir=args.data_dir,
         apex_plus_factor=args.apex_plus_factor,
+        end_year=args.end_year,
     )
 
     out_dir = Path(args.out_dir)

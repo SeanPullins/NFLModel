@@ -7,8 +7,12 @@ on:
       - main
     paths:
       - ".github/workflows/run-backtests.yml"
+      - "src/feature_sets.py"
       - "src/pipeline.py"
       - "src/download_source_data.py"
+      - "src/improve.py"
+      - "src/build_site.py"
+      - "src/template.html"
       - "src/backtest.py"
       - "src/position_models.py"
       - "src/sweep_apex_factor.py"
@@ -40,12 +44,20 @@ jobs:
       - name: Download and normalize public source data
         run: python src/download_source_data.py
 
-      - name: Run rolling APEX+ backtest
+      - name: Build profile-only public board
+        run: |
+          python src/improve.py \
+            --feature-set profile \
+            --end-year 2026
+          python src/build_site.py
+
+      - name: Run profile-only raw APEX backtest
         run: |
           python src/backtest.py \
             --first-test-year 2011 \
             --last-test-year 2021 \
             --end-year 2021 \
+            --feature-set profile \
             --apex-plus-factor 3.5
 
       - name: Run APEX+ factor sweep
@@ -56,12 +68,13 @@ jobs:
             --end-year 2021 \
             --factors "0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3,3.25,3.5"
 
-      - name: Run position-specific residual backtest
+      - name: Run position-specific profile-only challenger
         run: |
           python src/position_models.py \
             --first-test-year 2011 \
             --last-test-year 2021 \
             --end-year 2021 \
+            --feature-set profile \
             --apex-plus-factor 3.5
 
       - name: Run feature ablation backtests
@@ -73,8 +86,8 @@ jobs:
 
       - name: Run validation gates
         run: |
-          python src/validation_gates.py reports/rolling_backtest_summary.csv --out reports/rolling_validation_gates.json
-          python src/validation_gates.py reports/position_model_backtest_summary.csv --out reports/position_model_validation_gates.json
+          python src/validation_gates.py reports/rolling_backtest_summary.csv --delta-col delta_raw_vs_pick_spearman_drafted --out reports/rolling_validation_gates.json
+          python src/validation_gates.py reports/position_model_backtest_summary.csv --delta-col delta_raw_vs_pick_spearman_drafted --out reports/position_model_validation_gates.json
 
       - name: Show report summaries
         if: always()
@@ -105,4 +118,9 @@ jobs:
             reports/*.csv
             data/draft_data.csv
             data/combine_data_pfr_with_stats.csv
+            data/apex_board.csv
+            index.html
+            docs/index.html
+            docs/validation.html
+            docs/ablation.html
           if-no-files-found: warn

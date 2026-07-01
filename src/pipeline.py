@@ -251,15 +251,19 @@ def apply_feature_stats(part: pd.DataFrame, stats: dict, features: list[str] | N
 
 
 def align_pos_categories(train: pd.DataFrame, part: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    categories = sorted(train["pos_g"].astype(str).dropna().unique())
+    """Align category dtype without failing when OTH already exists.
+
+    Unknown/previously unseen position groups are mapped to OTH. Older code
+    always added OTH after casting, which raises a ValueError when OTH is already
+    present in the training categories. Because the backtest loop catches
+    ValueError, those years were silently skipped.
+    """
+    categories = sorted(set(train["pos_g"].astype(str).dropna()).union({"OTH"}))
     dtype = CategoricalDtype(categories=categories)
     out_train = train.copy()
     out_part = part.copy()
-    out_train["pos_g"] = out_train["pos_g"].astype(str).astype(dtype)
-    out_part["pos_g"] = out_part["pos_g"].astype(str).astype(dtype)
-    out_part["pos_g"] = out_part["pos_g"].cat.add_categories(["OTH"]).fillna("OTH")
-    if "OTH" not in out_train["pos_g"].cat.categories:
-        out_train["pos_g"] = out_train["pos_g"].cat.add_categories(["OTH"])
+    out_train["pos_g"] = out_train["pos_g"].astype(str).where(lambda s: s.isin(categories), "OTH").astype(dtype)
+    out_part["pos_g"] = out_part["pos_g"].astype(str).where(lambda s: s.isin(categories), "OTH").astype(dtype)
     return out_train, out_part
 
 

@@ -1,29 +1,7 @@
 name: Run APEX Backtests
 
-# Trigger note: push to this workflow file can be used to start a run when workflow_dispatch is unavailable.
 on:
   workflow_dispatch:
-    inputs:
-      first_test_year:
-        description: First test year
-        required: true
-        default: "2011"
-      last_test_year:
-        description: Last test year
-        required: true
-        default: "2021"
-      apex_plus_factor:
-        description: APEX+ residual factor
-        required: true
-        default: "3.5"
-      skip_array_combine:
-        description: Skip array-carpenter combine/pro-day overlay
-        required: true
-        default: "false"
-        type: choice
-        options:
-          - "false"
-          - "true"
   push:
     branches:
       - main
@@ -32,6 +10,7 @@ on:
       - "src/download_source_data.py"
       - "src/backtest.py"
       - "src/position_models.py"
+      - "src/sweep_apex_factor.py"
       - "src/validation_gates.py"
 
 jobs:
@@ -45,14 +24,6 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
 
-      - name: Set default inputs for push-triggered runs
-        id: vars
-        run: |
-          echo "first_test_year=${{ inputs.first_test_year || '2011' }}" >> "$GITHUB_OUTPUT"
-          echo "last_test_year=${{ inputs.last_test_year || '2021' }}" >> "$GITHUB_OUTPUT"
-          echo "apex_plus_factor=${{ inputs.apex_plus_factor || '3.5' }}" >> "$GITHUB_OUTPUT"
-          echo "skip_array_combine=${{ inputs.skip_array_combine || 'false' }}" >> "$GITHUB_OUTPUT"
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -65,26 +36,31 @@ jobs:
           pip install -r requirements.txt
 
       - name: Download and normalize public source data
-        run: |
-          if [ "${{ steps.vars.outputs.skip_array_combine }}" = "true" ]; then
-            python src/download_source_data.py --skip-array-combine
-          else
-            python src/download_source_data.py
-          fi
+        run: python src/download_source_data.py
 
       - name: Run rolling APEX+ backtest
         run: |
           python src/backtest.py \
-            --first-test-year "${{ steps.vars.outputs.first_test_year }}" \
-            --last-test-year "${{ steps.vars.outputs.last_test_year }}" \
-            --apex-plus-factor "${{ steps.vars.outputs.apex_plus_factor }}"
+            --first-test-year 2011 \
+            --last-test-year 2021 \
+            --end-year 2021 \
+            --apex-plus-factor 3.5
+
+      - name: Run APEX+ factor sweep
+        run: |
+          python src/sweep_apex_factor.py \
+            --first-test-year 2011 \
+            --last-test-year 2021 \
+            --end-year 2021 \
+            --factors "0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3,3.25,3.5"
 
       - name: Run position-specific residual backtest
         run: |
           python src/position_models.py \
-            --first-test-year "${{ steps.vars.outputs.first_test_year }}" \
-            --last-test-year "${{ steps.vars.outputs.last_test_year }}" \
-            --apex-plus-factor "${{ steps.vars.outputs.apex_plus_factor }}"
+            --first-test-year 2011 \
+            --last-test-year 2021 \
+            --end-year 2021 \
+            --apex-plus-factor 3.5
 
       - name: Run validation gates
         run: |
@@ -96,6 +72,10 @@ jobs:
         run: |
           echo "=== rolling_backtest_report.json ==="
           cat reports/rolling_backtest_report.json || true
+          echo "=== apex_factor_sweep_report.json ==="
+          cat reports/apex_factor_sweep_report.json || true
+          echo "=== apex_factor_sweep_summary.csv ==="
+          cat reports/apex_factor_sweep_summary.csv || true
           echo "=== position_model_backtest_report.json ==="
           cat reports/position_model_backtest_report.json || true
           echo "=== validation gates ==="

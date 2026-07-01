@@ -3,6 +3,9 @@
 A candidate model should not become the public headline model just because one
 metric improved in one window. These gates force average, median, win-rate, and
 worst-window checks.
+
+Default CLI gate now evaluates raw APEX lift because raw APEX is the public
+headline model. APEX+ factor sweeps still pass their APEX+ delta explicitly.
 """
 from __future__ import annotations
 
@@ -10,7 +13,6 @@ import argparse
 import json
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 DEFAULT_GATES = {
@@ -22,6 +24,9 @@ DEFAULT_GATES = {
     "require_non_negative_precision64_delta": False,
 }
 
+DEFAULT_RAW_DELTA_COL = "delta_raw_vs_pick_spearman_drafted"
+DEFAULT_PLUS_DELTA_COL = "delta_plus_vs_pick_spearman_drafted"
+
 
 def _series(df: pd.DataFrame, column: str) -> pd.Series:
     return pd.to_numeric(df[column], errors="coerce") if column in df.columns else pd.Series(dtype=float)
@@ -29,7 +34,7 @@ def _series(df: pd.DataFrame, column: str) -> pd.Series:
 
 def evaluate_gates(
     summary: pd.DataFrame,
-    delta_col: str = "delta_plus_vs_pick_spearman_drafted",
+    delta_col: str = DEFAULT_RAW_DELTA_COL,
     gates: dict | None = None,
 ) -> dict:
     gates = {**DEFAULT_GATES, **(gates or {})}
@@ -81,7 +86,7 @@ def evaluate_gates(
 def compare_candidates(
     summary: pd.DataFrame,
     candidate_col: str = "feature_set",
-    delta_col: str = "delta_plus_vs_pick_spearman_drafted",
+    delta_col: str = DEFAULT_RAW_DELTA_COL,
 ) -> dict:
     if candidate_col not in summary.columns:
         return {"error": f"Missing candidate column {candidate_col}"}
@@ -90,20 +95,10 @@ def compare_candidates(
         out[str(name)] = evaluate_gates(group, delta_col=delta_col)
     passing = [name for name, result in out.items() if result.get("pass")]
     if passing:
-        ranked = sorted(
-            passing,
-            key=lambda name: out[name]["checks"]["mean_lift"],
-            reverse=True,
-        )
-        out["recommendation"] = {
-            "promote": ranked[0],
-            "reason": "highest mean lift among candidates passing gates",
-        }
+        ranked = sorted(passing, key=lambda name: out[name]["checks"]["mean_lift"], reverse=True)
+        out["recommendation"] = {"promote": ranked[0], "reason": "highest mean lift among candidates passing gates"}
     else:
-        out["recommendation"] = {
-            "promote": None,
-            "reason": "no candidate passed the promotion gates",
-        }
+        out["recommendation"] = {"promote": None, "reason": "no candidate passed the promotion gates"}
     return out
 
 
@@ -111,7 +106,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("summary_csv")
     parser.add_argument("--candidate-col", default=None)
-    parser.add_argument("--delta-col", default="delta_plus_vs_pick_spearman_drafted")
+    parser.add_argument("--delta-col", default=DEFAULT_RAW_DELTA_COL)
     parser.add_argument("--out", default=None)
     args = parser.parse_args()
 

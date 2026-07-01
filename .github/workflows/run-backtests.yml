@@ -1,5 +1,6 @@
 name: Run APEX Backtests
 
+# Trigger note: push to this workflow file can be used to start a run when workflow_dispatch is unavailable.
 on:
   workflow_dispatch:
     inputs:

@@ -10,6 +10,19 @@ venv/
 .vscode/
 .idea/
 
+# Licensed data - never commit (PFF exports and features derived from them)
+data/pff/
+data/cfbd/
+data/production/qb_production.csv
+data/production/wr_production.csv
+data/production/rb_production.csv
+data/production/te_production.csv
+data/production/ol_production.csv
+data/production/edge_production.csv
+data/production/dt_production.csv
+data/production/lb_production.csv
+data/production/db_production.csv
+
 # Generated raw/enriched data (rebuilt by src/download_source_data.py + src/build_features.py)
 data/draft_data.csv
 data/combine_data_pfr_with_stats.csv

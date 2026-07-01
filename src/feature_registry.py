@@ -38,6 +38,10 @@ PRODUCTION_FEATURES_BY_GROUP: dict[str, tuple[str, ...]] = {
         "qb_big_time_throw_rate",
         "qb_turnover_worthy_play_rate",
         "qb_rush_epa_per_game",
+        # PFF passing features (src/build_pff_features.py; local only, licensed)
+        "qb_pff_pass_grade",
+        "qb_pff_pass_grade_final",
+        "qb_pff_dropbacks",
         # ESPN college Total QBR features (src/build_qb_production.py)
         "qb_career_plays",
         "qb_seasons",

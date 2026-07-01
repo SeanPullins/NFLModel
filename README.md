@@ -174,6 +174,37 @@ Current source inputs:
 - `JackLich10/nfl-draft-data` — ESPN pre-draft boards 2004-2021 (rank + grade), via `src/build_consensus_board.py`.
 - `nflverse/nflverse-data` draft_picks (fallback: `dynastyprocess/data`) — actual draft results for classes newer than phcs971 (2025+), so freshly drafted classes show real picks instead of placeholder "prospect" rows.
 
+## Bust-avoidance model
+
+`src/bust_model.py` stress-tests old classes to find the traits that flag
+landmines. Bust = bottom-45% career (drafted-peer percentile) among top-100
+picks; base rate ~20%.
+
+```bash
+python src/bust_model.py --first-test-year 2011 --last-test-year 2021 --end-year 2021
+```
+
+Rolling backtest 2011-2021: trait model AUC 0.713 vs 0.702 for slot-implied
+odds; top-10 bust-flag precision 37% vs 34%. The trait screen is the real
+product (`reports/bust_trait_table.csv`): reaching against public consensus
+(33% vs 4% bust rate across buckets), draft age 23+ (26% vs 13%), weak-program
+pedigree (27% vs 16%), and poor agility (23% vs 13%) are the strongest
+red flags.
+
+## Licensed / keyed data intake (PFF, CFBD)
+
+- **PFF**: drop NCAA exports (`pff_ncaa_all_positions_*` xlsx/csv) into
+  `data/pff/` and run `python src/build_pff_features.py`. QB passing metrics
+  (pressure-to-sack, TWP, BTT, accuracy, CPOE, PFF grade) are mapped now;
+  the script prints unmapped report types from fuller exports so receiving/
+  rushing/blocking/defense mappings can be added. `data/pff/` and PFF-derived
+  feature files are gitignored - never commit or publish raw PFF values.
+- **CFBD**: get a free key at collegefootballdata.com/key, export
+  `CFBD_API_KEY` (or add as a GitHub Actions secret), then
+  `python src/download_cfbd.py --start-year 2004 --end-year 2025` pulls full
+  player season stats, team talent, and recruiting ranks into `data/cfbd/`
+  - history back to 2004, which the free GitHub mirrors only carry from 2014.
+
 ## Projections: fair slot and tier odds
 
 Every board row now carries draft-slot-currency projections:

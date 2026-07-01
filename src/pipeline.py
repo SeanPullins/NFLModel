@@ -1,1 +1,1 @@
-PLACEHOLDER
+$(cat /mnt/data/nflmodel_new/pipeline.py)

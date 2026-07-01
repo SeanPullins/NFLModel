@@ -79,6 +79,15 @@ every year it is active improves or ties. Kept in the challenger configuration.
 The challenger still fails the strict worst-window gate (2011), so the global
 profile-only model remains the public default.
 
+## Season-trajectory features: investigated, not implemented (2026-07)
+
+Public season-by-season college stats (JackLich10 `college_statistics.csv` and
+`sportsdataverse/cfbfastR-data`, both 2014+) cover draft classes 2019-2021 at
+~86% but classes before 2018 at ~0%. That leaves no honest out-of-time test:
+covered classes lack covered training history and have censored outcomes.
+Decision recorded in `reports/trajectory_feasibility.json`; revisit when the
+2019-2021 classes mature (~2027).
+
 ## Current workflow commands
 
 The workflow builds a broad board through 2026 but validates mature outcome windows through 2021:

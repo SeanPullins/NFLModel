@@ -12,6 +12,7 @@ on:
       - "src/backtest.py"
       - "src/position_models.py"
       - "src/sweep_apex_factor.py"
+      - "src/ablation_backtest.py"
       - "src/validation_gates.py"
 
 jobs:
@@ -63,6 +64,13 @@ jobs:
             --end-year 2021 \
             --apex-plus-factor 3.5
 
+      - name: Run feature ablation backtests
+        run: |
+          python src/ablation_backtest.py \
+            --first-test-year 2011 \
+            --last-test-year 2021 \
+            --end-year 2021
+
       - name: Run validation gates
         run: |
           python src/validation_gates.py reports/rolling_backtest_summary.csv --out reports/rolling_validation_gates.json
@@ -79,6 +87,10 @@ jobs:
           cat reports/apex_factor_sweep_summary.csv || true
           echo "=== position_model_backtest_report.json ==="
           cat reports/position_model_backtest_report.json || true
+          echo "=== feature_ablation_summary.csv ==="
+          cat reports/feature_ablation_summary.csv || true
+          echo "=== feature_ablation_report.json ==="
+          cat reports/feature_ablation_report.json || true
           echo "=== validation gates ==="
           cat reports/rolling_validation_gates.json || true
           cat reports/position_model_validation_gates.json || true

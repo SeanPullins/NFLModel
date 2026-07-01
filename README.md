@@ -4,37 +4,51 @@ Two-stage residual NFL draft model + interactive scouting dashboard for historic
 
 ## Current honest validation status
 
-The regenerated public-source backtest showed that **raw APEX has a small edge**, but the old **APEX+ 3.5× residual amplification did not reproduce the earlier headline result**. Until a residual factor passes promotion gates, the honest headline model is **raw APEX**, not APEX+.
+The regenerated public-source backtest showed that **raw APEX has a small edge**, but the old **APEX+ 3.5x residual amplification did not reproduce the earlier headline result**. Until a residual factor passes promotion gates, the honest headline model is **raw APEX**, not APEX+.
 
 Current rule:
 
 > APEX+ is experimental. Raw APEX remains the baseline headline unless `src/sweep_apex_factor.py` finds a factor that passes mean, median, win-rate, and worst-window gates.
 
-## What changed in v1.4 validation fix
+## What changed in this upgrade
 
-- **Removed the hidden year cap** by adding `--end-year` to the backtest scripts.
-- **Rolling validation can now truly test 2011-2021** instead of silently stopping at 2016.
-- **Added APEX+ factor sweep** with `src/sweep_apex_factor.py`.
-- **Promotion is gated**: a factor is promoted only if it passes validation gates.
-- **Dashboard/docs are being downgraded away from the old 0.697 APEX+ headline** until regenerated results justify it.
+- **Raw APEX is the board grade**. APEX+ remains experimental until a factor earns promotion.
+- **NCAA production features from `phcs971/nfl-draft-dataset` are now included** in the model pipeline.
+- **NFL career stats are excluded from feature inputs** to avoid outcome leakage.
+- **The 2011-2021 validation workflow remains the gatekeeper** for any accuracy claim.
 
-## Existing v1.3 scaffold
+## Production features added from source data
 
-- **Optional production feature ingestion** via `src/build_features.py`.
-- **Feature registry** for QB/WR/RB/TE/OL/EDGE/DT/LB/DB production columns and consensus-market columns.
-- **Pre-draft backtest** using expected pick / consensus rank instead of actual draft slot.
-- **Position-specific residual backtest** for QB, skill, OL, front, LB, and DB families.
-- **Promotion gates** so a candidate model must improve mean, median, win rate, and worst-window behavior before being promoted.
-- **Public source downloader** via `src/download_source_data.py`, which builds the raw files expected by the pipeline from public GitHub data sources.
-- **Manual GitHub Action runner** via `.github/workflows/run-backtests.yml`.
-- **Feature documentation** in `docs/FEATURES.md`.
+The public source includes NCAA career stats. The downloader now converts those into pre-draft per-game production features:
+
+```text
+college_games
+college_pass_yds_pg
+college_pass_td_pg
+college_pass_int_pg
+college_pass_cmp_pct
+college_pass_td_int_ratio
+college_rush_yds_pg
+college_rush_td_pg
+college_rec_yds_pg
+college_rec_td_pg
+college_tackles_pg
+college_sacks_pg
+college_ints_pg
+college_fumbles_pg
+college_offensive_yds_pg
+college_total_td_pg
+college_def_playmaking_pg
+```
+
+These come from college production only. They do **not** use NFL outcomes such as Pro Bowls, All-Pro selections, NFL games played, NFL sacks, or NFL receiving/rushing/passing stats.
 
 ## Architecture
 
-1. **Market baseline** — isotonic regression from pick → outcome, with optional per-position blending.
-2. **Raw APEX residual model** — 5-seed bagged LightGBM on position-normalized combine/profile features, age, and shrunken college encoding.
+1. **Market baseline** — isotonic regression from pick to outcome, with optional per-position blending.
+2. **Raw APEX residual model** — 5-seed bagged LightGBM on position-normalized combine/profile features, age, shrunken college encoding, and NCAA production features.
 3. **Per-position shrinkage** — residual weight tuned by position on an earlier validation fold, then applied to the out-of-time test fold.
-4. **APEX+ experimental residual amplification** — `market + factor × (raw APEX - market)`, clipped to a 1-99 percentile range. This is not promoted unless the factor sweep passes gates.
+4. **APEX+ experimental residual amplification** — `market + factor x (raw APEX - market)`, clipped to a 1-99 percentile range. This is not promoted unless the factor sweep passes gates.
 
 **Target:** within-class Career AV percentile. This is a ranking target, not a calibrated projection of exact career value.
 
@@ -62,7 +76,7 @@ src/
 data/
   apex_board.csv      generated board used by dashboard
   draft_data.csv      generated raw draft/outcome file after download_source_data.py
-  combine_data_pfr_with_stats.csv generated combine/profile file after download_source_data.py
+  combine_data_pfr_with_stats.csv generated combine/profile + NCAA production file after download_source_data.py
   model_features.csv  generated enriched table after build_features.py
   production/         optional production feature CSVs
   consensus/          optional consensus-board / expected-pick CSVs
@@ -89,15 +103,15 @@ data/combine_data_pfr_with_stats.csv
 
 Current source inputs:
 
-- `phcs971/nfl-draft-dataset` → merged combine, draft, career AV, and NCAA data through 2024.
-- `array-carpenter/nfl-draft-data` → combine/pro-day measurements through 2026.
+- `phcs971/nfl-draft-dataset` — combine, draft, career AV, and NCAA production data through 2024.
+- `array-carpenter/nfl-draft-data` — combine/pro-day measurements through 2026.
 
 ## Run from GitHub Actions
 
 Go to:
 
 ```text
-GitHub repo → Actions → Run APEX Backtests → Run workflow
+GitHub repo -> Actions -> Run APEX Backtests -> Run workflow
 ```
 
 The workflow runs:
@@ -158,8 +172,8 @@ A single higher headline Spearman is not enough. If no APEX+ factor passes gates
 Highest-impact next data additions:
 
 1. consensus-board / expected-pick history for true pre-draft forecasting
-2. QB pressure-to-sack and age-adjusted efficiency features
-3. WR YPRR / target share / breakout age
+2. pressure-to-sack and age-adjusted QB efficiency features
+3. route-level WR/TE features such as YPRR and target share
 4. EDGE pressure rate and pass-rush win rate
 5. OL pressure allowed and snap data
 6. DB coverage and missed-tackle metrics

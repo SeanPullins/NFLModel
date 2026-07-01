@@ -1,8 +1,8 @@
 """APEX Draft Model utilities.
 
-v1.2 keeps every learned transform inside the active training fold:
-college encodings, athletic z-scores, and market baselines are fit on past data
-only before scoring validation/test rows.
+This version keeps every learned transform inside the active training fold:
+college encodings, athletic z-scores, production z-scores, and market baselines
+are fit on past data only before scoring validation/test rows.
 """
 from __future__ import annotations
 
@@ -34,10 +34,34 @@ POSMAP = {
     "K": "ST", "P": "ST", "LS": "ST",
 }
 
-RAW_FEATURES = [
+ATHLETIC_FEATURES = [
     "dash", "speed_score", "explosion", "agility", "weight",
     "height", "bmi", "bench", "vert_leap", "broad",
 ]
+
+# Pre-draft college production features from phcs971/nfl-draft-dataset.
+# These intentionally exclude NFL career fields to avoid outcome leakage.
+COLLEGE_PRODUCTION_FEATURES = [
+    "college_games",
+    "college_pass_yds_pg",
+    "college_pass_td_pg",
+    "college_pass_int_pg",
+    "college_pass_cmp_pct",
+    "college_pass_td_int_ratio",
+    "college_rush_yds_pg",
+    "college_rush_td_pg",
+    "college_rec_yds_pg",
+    "college_rec_td_pg",
+    "college_tackles_pg",
+    "college_sacks_pg",
+    "college_ints_pg",
+    "college_fumbles_pg",
+    "college_offensive_yds_pg",
+    "college_total_td_pg",
+    "college_def_playmaking_pg",
+]
+
+RAW_FEATURES = ATHLETIC_FEATURES + COLLEGE_PRODUCTION_FEATURES
 FEATS_A = [f"{c}_z" for c in RAW_FEATURES] + ["age", "col_enc"]
 FEATS_C = FEATS_A + ["logpick"]
 CATS = ["pos_g"]
@@ -90,7 +114,7 @@ def add_base_features(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
     numeric = [
         "height", "weight", "dash", "vert_leap", "bench", "broad",
-        "cone", "shuttle", "Pick", "CarAV",
+        "cone", "shuttle", "Pick", "CarAV", *COLLEGE_PRODUCTION_FEATURES,
     ]
     _ensure_columns(out, numeric)
     for column in numeric:
@@ -139,14 +163,17 @@ def load_dataset(
     dr["pos_g"] = dr["Pos"].map(POSMAP).fillna("OTH")
     dr["CarAV"] = pd.to_numeric(dr.get("CarAV", 0), errors="coerce").fillna(0)
 
-    metrics = ["height", "weight", "dash", "vert_leap", "bench", "broad", "cone", "shuttle"]
-    _ensure_columns(cb, metrics)
-    for column in metrics:
-        cb[column] = pd.to_numeric(cb[column], errors="coerce").replace(0, np.nan)
+    merge_metrics = [
+        "height", "weight", "dash", "vert_leap", "bench", "broad", "cone", "shuttle",
+        *COLLEGE_PRODUCTION_FEATURES,
+    ]
+    _ensure_columns(cb, merge_metrics)
+    for column in merge_metrics:
+        cb[column] = pd.to_numeric(cb[column], errors="coerce").replace(0, np.nan if column in ATHLETIC_FEATURES else 0)
     cb["key"] = cb["player"].map(norm) + "_" + cb["year"].astype(str)
     cb = cb.drop_duplicates("key")
 
-    merge_cols = ["key", *metrics] + (["college"] if "college" in cb.columns else [])
+    merge_cols = ["key", *merge_metrics] + (["college"] if "college" in cb.columns else [])
     df = dr.merge(cb[merge_cols], on="key", how="left")
 
     if include_undrafted:
@@ -156,7 +183,7 @@ def load_dataset(
         ud["CarAV"] = 0.0
         ud["Pick"] = 263.0
         ud["Rnd"] = 8
-        keep = ["Year", "Player", "Pos", "pos_g", "Pick", "Rnd", "CarAV", "key", *metrics]
+        keep = ["Year", "Player", "Pos", "pos_g", "Pick", "Rnd", "CarAV", "key", *merge_metrics]
         if "college" in ud.columns:
             keep.append("college")
         df = pd.concat([df, ud[keep]], ignore_index=True)
@@ -209,55 +236,58 @@ def apply_feature_stats(part: pd.DataFrame, stats: dict, features: list[str] | N
     out = part.copy()
     pos = out["pos_g"].astype(str)
     for feature in features:
-        values = pd.to_numeric(out[feature], errors="coerce").fillna(stats["global_median"][feature])
-        mu = pos.map(stats["pos_mu"][feature]).fillna(stats["global_mu"][feature])
-        sd = pos.map(stats["pos_sd"][feature]).fillna(stats["global_sd"][feature]).replace(0, 1)
-        out[f"{feature}_z"] = (values - mu) / sd
+        median = stats["global_median"].get(feature, 0.0)
+        values = pd.to_numeric(out.get(feature, median), errors="coerce").fillna(median)
+        z = pd.Series(index=out.index, dtype=float)
+        for p in pos.unique():
+            mask = pos.eq(p)
+            mu = stats["pos_mu"].get(feature, {}).get(p, stats["global_mu"].get(feature, 0.0))
+            sd = stats["pos_sd"].get(feature, {}).get(p, stats["global_sd"].get(feature, 1.0))
+            if not np.isfinite(sd) or sd == 0:
+                sd = 1.0
+            z.loc[mask] = (values.loc[mask] - mu) / sd
+        out[f"{feature}_z"] = z.clip(-4, 4)
     return out
 
 
 def align_pos_categories(train: pd.DataFrame, part: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    t = train.copy()
-    p = part.copy()
-    categories = sorted(set(t["pos_g"].astype(str)) | set(p["pos_g"].astype(str)))
+    categories = sorted(train["pos_g"].astype(str).dropna().unique())
     dtype = CategoricalDtype(categories=categories)
-    t["pos_g"] = t["pos_g"].astype(str).astype(dtype)
-    p["pos_g"] = p["pos_g"].astype(str).astype(dtype)
-    return t, p
+    out_train = train.copy()
+    out_part = part.copy()
+    out_train["pos_g"] = out_train["pos_g"].astype(str).astype(dtype)
+    out_part["pos_g"] = out_part["pos_g"].astype(str).astype(dtype)
+    out_part["pos_g"] = out_part["pos_g"].cat.add_categories(["OTH"]).fillna("OTH")
+    if "OTH" not in out_train["pos_g"].cat.categories:
+        out_train["pos_g"] = out_train["pos_g"].cat.add_categories(["OTH"])
+    return out_train, out_part
 
 
 def prepare_fold(
-    train: pd.DataFrame,
-    part: pd.DataFrame,
+    train_raw: pd.DataFrame,
+    part_raw: pd.DataFrame,
     *,
     return_stats: bool = False,
 ) -> tuple[pd.DataFrame, pd.DataFrame] | tuple[pd.DataFrame, pd.DataFrame, dict]:
-    train_f = add_base_features(train.copy())
-    part_f = add_base_features(part.copy())
-
-    train_f["col_enc"] = college_enc(train_f, train_f)
-    part_f["col_enc"] = college_enc(train_f, part_f)
-
-    stats = fit_feature_stats(train_f)
-    train_f = apply_feature_stats(train_f, stats)
-    part_f = apply_feature_stats(part_f, stats)
-    train_f, part_f = align_pos_categories(train_f, part_f)
-
+    train = train_raw.copy()
+    part = part_raw.copy()
+    train, part = align_pos_categories(train, part)
+    train["col_enc"] = college_enc(train, train)
+    part["col_enc"] = college_enc(train, part)
+    stats = fit_feature_stats(train)
+    train = apply_feature_stats(train, stats)
+    part = apply_feature_stats(part, stats)
     if return_stats:
-        return train_f, part_f, stats
-    return train_f, part_f
+        return train, part, stats
+    return train, part
 
 
 def make_pick_baseline(train: pd.DataFrame) -> tuple[Callable[[pd.DataFrame], np.ndarray], IsotonicRegression]:
-    fit = train[train["Pick"].notna() & train["y"].notna()]
+    fit = train[train["Pick"].notna() & train["y"].notna()].copy()
     iso = IsotonicRegression(out_of_bounds="clip").fit(-fit["Pick"], fit["y"])
 
     def predict(part: pd.DataFrame) -> np.ndarray:
-        out = np.full(len(part), np.nan, dtype=float)
-        mask = part["Pick"].notna()
-        if mask.any():
-            out[mask.to_numpy()] = iso.predict(-part.loc[mask, "Pick"])
-        return out
+        return iso.predict(-part["Pick"].fillna(263))
 
     return predict, iso
 

@@ -75,8 +75,11 @@ def make_predraft_market_baseline(train: pd.DataFrame) -> tuple[Callable[[pd.Dat
 
 
 def available_consensus_features(train: pd.DataFrame, min_coverage: float = 0.20) -> list[str]:
+    """Use consensus context features, but keep the market proxy inside the baseline."""
     feats = []
     for col in consensus_market_features():
+        if col in PRE_DRAFT_MARKET_CANDIDATES:
+            continue
         if col in train.columns and pd.to_numeric(train[col], errors="coerce").notna().mean() >= min_coverage:
             feats.append(col)
     return feats

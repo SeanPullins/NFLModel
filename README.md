@@ -4,23 +4,33 @@ Two-stage residual NFL draft model + interactive scouting dashboard covering his
 
 The live v1.2.1 board reports **APEX+ Spearman ρ 0.697** on the 2012-14 official holdout versus **0.615** for the pick-only market baseline. Across the four published rolling validation windows from 2008-2020, APEX+ improves over the market in **4 of 4 windows**, with **average lift +0.083** and **median lift +0.080**.
 
-## What changed in v1.2+
+## What changed in v1.3 scaffold
+
+This version adds the infrastructure needed to improve accuracy honestly:
+
+- **Optional production feature ingestion** via `src/build_features.py`.
+- **Feature registry** for QB/WR/RB/TE/OL/EDGE/DT/LB/DB production columns and consensus-market columns.
+- **Pre-draft backtest** using expected pick / consensus rank instead of actual draft slot.
+- **Position-specific residual backtest** for QB, skill, OL, front, LB, and DB families.
+- **Promotion gates** so a candidate model must improve mean, median, win rate, and worst-window behavior before being promoted.
+- **Feature documentation** in `docs/FEATURES.md`.
+
+## Existing v1.2+ improvements
 
 - **Fold-safe college encoding** — college strength is fit on the training fold only, then mapped to validation/test/prospect rows.
 - **Fold-safe athletic normalization** — position z-scores are learned from the training fold only instead of the full dataframe.
 - **Repo-relative paths** — scripts now read from `data/` or `APEX_DATA_DIR` instead of hardcoded scratch paths.
-- **Rolling backtests** — `src/backtest.py` now reports raw APEX and APEX+ versus pick-only/market baselines.
+- **Rolling backtests** — `src/backtest.py` reports raw APEX and APEX+ versus pick-only/market baselines.
 - **APEX+ validation artifact** — committed CSV/JSON summaries show average and median lift across rolling windows.
 - **Public validation page** — `docs/validation.html` shows the rolling-window scoreboard and links to downloadable CSV/JSON.
 - **Experiment harness** — `src/experiment_feature_sets.py` tests whether adding post-draft interaction features improves the residual before promoting the change.
-- **Model card** — assumptions, target definition, leakage controls, and known limitations are documented in `docs/MODEL_CARD.md`.
 
 ## Live dashboard
 
 Deploy free on GitHub Pages:
 
 ```bash
-git init && git add . && git commit -m "APEX v1.2.1"
+git init && git add . && git commit -m "APEX v1.3"
 gh repo create apex-draft-model --public --source=. --push
 ```
 
@@ -33,6 +43,7 @@ Useful public pages:
 - `docs/index.html` — board
 - `docs/model.html` — model explanation
 - `docs/validation.html` — rolling validation summary
+- `docs/FEATURES.md` — production/consensus feature guide
 - `docs/rolling_backtest_summary.csv` — downloadable validation CSV
 - `docs/rolling_backtest_report.json` — downloadable validation JSON
 
@@ -52,20 +63,29 @@ Useful public pages:
 ```text
 src/
   pipeline.py                  shared loading, feature, baseline, residual, and metric utilities
+  feature_registry.py          optional production/consensus feature definitions
+  build_features.py            builds data/model_features.csv from optional feature files
   improve.py                   v1.2 train + original 2012-14 holdout evaluation
   backtest.py                  rolling out-of-time validation, including APEX+
   experiment_feature_sets.py   compares profile-only vs postdraft-interaction residual features
+  predraft_backtest.py         evaluates true pre-draft market/prospect forecasting
+  position_models.py           tests position-family residual models
+  validation_gates.py          promotion checks for candidate models
   build_site.py                static dashboard builder
   template.html                dashboard template
 
 data/
-  apex_board.csv  generated board used by dashboard
-  SOURCES.md      raw-data source notes
+  apex_board.csv      generated board used by dashboard
+  model_features.csv  generated enriched table after build_features.py
+  production/         optional production feature CSVs
+  consensus/          optional consensus-board / expected-pick CSVs
+  SOURCES.md          raw-data source notes
 
 docs/
   index.html                     GitHub Pages dashboard
   model.html                     model explanation
   validation.html                rolling validation page
+  FEATURES.md                    feature upgrade guide
   rolling_backtest_summary.csv   public validation CSV
   rolling_backtest_report.json   public validation JSON
   MODEL_CARD.md                  model assumptions, limits, validation protocol
@@ -75,7 +95,7 @@ models/
   generated LightGBM/isotonic artifacts after running src/improve.py
 
 reports/
-  generated holdout, rolling backtest, and experiment outputs
+  generated holdout, rolling backtest, feature coverage, and experiment outputs
 ```
 
 ## Raw data setup
@@ -95,7 +115,35 @@ export APEX_DATA_DIR=/path/to/raw-data
 
 Source notes are in `data/SOURCES.md`.
 
-## Retrain
+## Add production / consensus data
+
+Create templates:
+
+```bash
+python src/build_features.py --write-templates
+```
+
+Fill any optional files under:
+
+```text
+data/production/
+data/consensus/
+```
+
+Then build the enriched feature table:
+
+```bash
+python src/build_features.py
+```
+
+This writes:
+
+```text
+data/model_features.csv
+reports/feature_coverage.json
+```
+
+## Retrain current production board
 
 ```bash
 pip install -r requirements.txt
@@ -115,7 +163,7 @@ reports/holdout_2012_2014_scored.csv
 ## Rolling validation
 
 ```bash
-python src/backtest.py --first-test-year 2011 --last-test-year 2016 --apex-plus-factor 3.5
+python src/backtest.py --first-test-year 2011 --last-test-year 2021 --apex-plus-factor 3.5
 ```
 
 This writes:
@@ -134,30 +182,52 @@ delta_plus_vs_pick_spearman_drafted
 
 Positive means APEX+ ranked drafted players better than the pick-only market baseline for that test year.
 
-## Candidate feature experiment
+## Accuracy experiments
 
-Before changing the production model, compare the current profile-only residual against a post-draft interaction residual that also includes `logpick`:
+Feature-set experiment:
 
 ```bash
-python src/experiment_feature_sets.py --first-test-year 2011 --last-test-year 2016 --apex-plus-factor 3.5
+python src/experiment_feature_sets.py --first-test-year 2011 --last-test-year 2021 --apex-plus-factor 3.5
 ```
 
-This writes:
+Position-specific residual experiment:
 
-```text
-reports/feature_set_experiment_summary.csv
-reports/feature_set_experiment_report.json
+```bash
+python src/position_models.py --first-test-year 2011 --last-test-year 2021 --apex-plus-factor 3.5
 ```
 
-Promote the post-draft interaction feature set only if it improves average and median lift without lowering the window win rate.
+Pre-draft forecasting experiment:
+
+```bash
+python src/predraft_backtest.py --first-test-year 2011 --last-test-year 2021 --apex-plus-factor 3.5
+```
+
+Promotion gates:
+
+```bash
+python src/validation_gates.py reports/position_model_backtest_summary.csv
+python src/validation_gates.py reports/feature_set_experiment_summary.csv --candidate-col feature_set
+```
+
+## Promotion rule
+
+Promote a candidate only if it improves:
+
+- average lift
+- median lift
+- window win rate
+- worst-window behavior
+- practical draft metrics such as precision@32 / precision@64
+
+A single higher headline Spearman is not enough.
 
 ## Roadmap
 
-Highest-impact next upgrades:
+Highest-impact next data additions:
 
-1. Add college production features by position.
-2. Split pre-draft and post-draft models.
-3. Add consensus-board / mock-draft expected-pick data for pre-draft forecasting.
-4. Build QB-specific, WR-specific, OL-specific, EDGE-specific, and DB-specific submodels.
-5. Add uncertainty bands and tier labels instead of only raw decimals.
-6. Update the future board with current pick data and keep source generation reproducible.
+1. consensus-board / expected-pick history for true pre-draft forecasting
+2. QB pressure-to-sack and age-adjusted efficiency features
+3. WR YPRR / target share / breakout age
+4. EDGE pressure rate and pass-rush win rate
+5. OL pressure allowed and snap data
+6. DB coverage and missed-tackle metrics

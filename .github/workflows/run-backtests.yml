@@ -1,0 +1,97 @@
+name: Run APEX Backtests
+
+on:
+  workflow_dispatch:
+    inputs:
+      first_test_year:
+        description: First test year
+        required: true
+        default: "2011"
+      last_test_year:
+        description: Last test year
+        required: true
+        default: "2021"
+      apex_plus_factor:
+        description: APEX+ residual factor
+        required: true
+        default: "3.5"
+      skip_array_combine:
+        description: Skip array-carpenter combine/pro-day overlay
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Download and normalize public source data
+        run: |
+          if [ "${{ inputs.skip_array_combine }}" = "true" ]; then
+            python src/download_source_data.py --skip-array-combine
+          else
+            python src/download_source_data.py
+          fi
+
+      - name: Run rolling APEX+ backtest
+        run: |
+          python src/backtest.py \
+            --first-test-year "${{ inputs.first_test_year }}" \
+            --last-test-year "${{ inputs.last_test_year }}" \
+            --apex-plus-factor "${{ inputs.apex_plus_factor }}"
+
+      - name: Run position-specific residual backtest
+        run: |
+          python src/position_models.py \
+            --first-test-year "${{ inputs.first_test_year }}" \
+            --last-test-year "${{ inputs.last_test_year }}" \
+            --apex-plus-factor "${{ inputs.apex_plus_factor }}"
+
+      - name: Run validation gates
+        run: |
+          python src/validation_gates.py reports/rolling_backtest_summary.csv --out reports/rolling_validation_gates.json
+          python src/validation_gates.py reports/position_model_backtest_summary.csv --out reports/position_model_validation_gates.json
+
+      - name: Show report summaries
+        if: always()
+        run: |
+          echo "=== rolling_backtest_report.json ==="
+          cat reports/rolling_backtest_report.json || true
+          echo "=== position_model_backtest_report.json ==="
+          cat reports/position_model_backtest_report.json || true
+          echo "=== validation gates ==="
+          cat reports/rolling_validation_gates.json || true
+          cat reports/position_model_validation_gates.json || true
+
+      - name: Upload reports artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apex-backtest-reports
+          path: |
+            reports/*.json
+            reports/*.csv
+            data/draft_data.csv
+            data/combine_data_pfr_with_stats.csv
+          if-no-files-found: warn

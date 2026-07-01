@@ -13,6 +13,8 @@ This version adds the infrastructure needed to improve accuracy honestly:
 - **Pre-draft backtest** using expected pick / consensus rank instead of actual draft slot.
 - **Position-specific residual backtest** for QB, skill, OL, front, LB, and DB families.
 - **Promotion gates** so a candidate model must improve mean, median, win rate, and worst-window behavior before being promoted.
+- **Public source downloader** via `src/download_source_data.py`, which builds the raw files expected by the pipeline from public GitHub data sources.
+- **Manual GitHub Action runner** via `.github/workflows/run-backtests.yml`.
 - **Feature documentation** in `docs/FEATURES.md`.
 
 ## Existing v1.2+ improvements
@@ -63,6 +65,7 @@ Useful public pages:
 ```text
 src/
   pipeline.py                  shared loading, feature, baseline, residual, and metric utilities
+  download_source_data.py      downloads public source data and writes pipeline raw inputs
   feature_registry.py          optional production/consensus feature definitions
   build_features.py            builds data/model_features.csv from optional feature files
   improve.py                   v1.2 train + original 2012-14 holdout evaluation
@@ -74,8 +77,13 @@ src/
   build_site.py                static dashboard builder
   template.html                dashboard template
 
+.github/workflows/
+  run-backtests.yml            manual Action: download sources, run backtests, upload reports
+
 data/
   apex_board.csv      generated board used by dashboard
+  draft_data.csv      generated raw draft/outcome file after download_source_data.py
+  combine_data_pfr_with_stats.csv generated combine/profile file after download_source_data.py
   model_features.csv  generated enriched table after build_features.py
   production/         optional production feature CSVs
   consensus/          optional consensus-board / expected-pick CSVs
@@ -107,13 +115,50 @@ draft_data.csv
 combine_data_pfr_with_stats.csv
 ```
 
-Put them in `data/`, or point to another folder:
+Build them automatically from public source repos:
+
+```bash
+python src/download_source_data.py
+```
+
+This writes:
+
+```text
+data/draft_data.csv
+data/combine_data_pfr_with_stats.csv
+```
+
+Current source inputs:
+
+- `phcs971/nfl-draft-dataset` → merged combine, draft, career AV, and NCAA data through 2024.
+- `array-carpenter/nfl-draft-data` → combine/pro-day measurements through 2026.
+
+You can also point to your own raw-data folder:
 
 ```bash
 export APEX_DATA_DIR=/path/to/raw-data
 ```
 
 Source notes are in `data/SOURCES.md`.
+
+## Run from GitHub Actions
+
+After merging the workflow, use:
+
+```text
+GitHub repo → Actions → Run APEX Backtests → Run workflow
+```
+
+Defaults:
+
+```text
+first_test_year = 2011
+last_test_year = 2021
+apex_plus_factor = 3.5
+skip_array_combine = false
+```
+
+The workflow downloads source data, runs rolling backtests, runs position-specific backtests, applies validation gates, and uploads a report artifact named `apex-backtest-reports`.
 
 ## Add production / consensus data
 
@@ -147,6 +192,7 @@ reports/feature_coverage.json
 
 ```bash
 pip install -r requirements.txt
+python src/download_source_data.py
 python src/improve.py
 ```
 

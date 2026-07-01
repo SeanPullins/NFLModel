@@ -11,13 +11,20 @@ on:
       - "src/pipeline.py"
       - "src/download_source_data.py"
       - "src/improve.py"
+      - "src/add_conservative_scores.py"
       - "src/build_site.py"
       - "src/template.html"
       - "src/backtest.py"
       - "src/position_models.py"
       - "src/sweep_apex_factor.py"
+      - "src/nested_factor_backtest.py"
+      - "src/position_ensemble_backtest.py"
+      - "src/predraft_market.py"
+      - "src/predraft_backtest.py"
       - "src/ablation_backtest.py"
       - "src/validation_gates.py"
+      - "data/consensus/**"
+      - "data/production/**"
 
 jobs:
   backtest:
@@ -44,12 +51,16 @@ jobs:
       - name: Download and normalize public source data
         run: python src/download_source_data.py
 
-      - name: Build profile-only public board
+      - name: Build profile-only public board with conservative scores
         run: |
           python src/improve.py \
             --feature-set profile \
             --end-year 2026
+          python src/add_conservative_scores.py --factors "0.25,0.50,0.75"
           python src/build_site.py
+
+      - name: Check pre-draft consensus scaffold
+        run: python src/predraft_market.py --write-template --check
 
       - name: Run profile-only raw APEX backtest
         run: |
@@ -68,6 +79,13 @@ jobs:
             --end-year 2021 \
             --factors "0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3,3.25,3.5"
 
+      - name: Run nested conservative factor backtest
+        run: |
+          python src/nested_factor_backtest.py \
+            --factor-by-year reports/apex_factor_sweep_by_year.csv \
+            --min-history-years 4 \
+            --allowed-factors "0,0.25,0.5,0.75,1.0"
+
       - name: Run position-specific profile-only challenger
         run: |
           python src/position_models.py \
@@ -76,6 +94,15 @@ jobs:
             --end-year 2021 \
             --feature-set profile \
             --apex-plus-factor 3.5
+
+      - name: Run position-weighted ensemble backtest
+        run: |
+          python src/position_ensemble_backtest.py \
+            --first-test-year 2011 \
+            --last-test-year 2021 \
+            --end-year 2021 \
+            --feature-set profile \
+            --weights "0,0.25,0.5,0.75,1"
 
       - name: Run feature ablation backtests
         run: |
@@ -88,6 +115,8 @@ jobs:
         run: |
           python src/validation_gates.py reports/rolling_backtest_summary.csv --delta-col delta_raw_vs_pick_spearman_drafted --out reports/rolling_validation_gates.json
           python src/validation_gates.py reports/position_model_backtest_summary.csv --delta-col delta_raw_vs_pick_spearman_drafted --out reports/position_model_validation_gates.json
+          python src/validation_gates.py reports/position_ensemble_backtest_summary.csv --delta-col delta_ensemble_vs_pick_spearman_drafted --out reports/position_ensemble_validation_gates.json
+          python src/validation_gates.py reports/nested_factor_backtest_summary.csv --delta-col delta_nested_vs_pick_spearman_drafted --out reports/nested_factor_validation_gates.json
 
       - name: Show report summaries
         if: always()
@@ -98,15 +127,21 @@ jobs:
           cat reports/apex_factor_sweep_report.json || true
           echo "=== apex_factor_sweep_summary.csv ==="
           cat reports/apex_factor_sweep_summary.csv || true
+          echo "=== nested_factor_backtest_report.json ==="
+          cat reports/nested_factor_backtest_report.json || true
           echo "=== position_model_backtest_report.json ==="
           cat reports/position_model_backtest_report.json || true
+          echo "=== position_ensemble_backtest_report.json ==="
+          cat reports/position_ensemble_backtest_report.json || true
           echo "=== feature_ablation_summary.csv ==="
           cat reports/feature_ablation_summary.csv || true
-          echo "=== feature_ablation_report.json ==="
-          cat reports/feature_ablation_report.json || true
+          echo "=== predraft_market_status.json ==="
+          cat reports/predraft_market_status.json || true
           echo "=== validation gates ==="
           cat reports/rolling_validation_gates.json || true
           cat reports/position_model_validation_gates.json || true
+          cat reports/position_ensemble_validation_gates.json || true
+          cat reports/nested_factor_validation_gates.json || true
 
       - name: Upload reports artifact
         if: always()
@@ -119,6 +154,8 @@ jobs:
             data/draft_data.csv
             data/combine_data_pfr_with_stats.csv
             data/apex_board.csv
+            data/consensus/*.csv
+            data/production/*.csv
             index.html
             docs/index.html
             docs/validation.html

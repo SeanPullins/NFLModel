@@ -160,6 +160,7 @@ jobs:
           cp docs/index.html _site/docs/index.html
           cp docs/validation.html _site/docs/validation.html
           cp docs/ablation.html _site/docs/ablation.html
+          cp docs/model.html _site/docs/model.html
           cp data/apex_board.csv _site/data/apex_board.csv
           cp reports/rolling_backtest_report.json _site/data/rolling_backtest_report.json || true
           cp reports/apex_factor_sweep_report.json _site/data/apex_factor_sweep_report.json || true

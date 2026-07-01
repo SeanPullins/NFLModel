@@ -193,12 +193,23 @@ red flags.
 
 ## Licensed / keyed data intake (PFF, CFBD)
 
-- **PFF**: drop NCAA exports (`pff_ncaa_all_positions_*` xlsx/csv) into
-  `data/pff/` and run `python src/build_pff_features.py`. QB passing metrics
-  (pressure-to-sack, TWP, BTT, accuracy, CPOE, PFF grade) are mapped now;
-  the script prints unmapped report types from fuller exports so receiving/
-  rushing/blocking/defense mappings can be added. `data/pff/` and PFF-derived
-  feature files are gitignored - never commit or publish raw PFF values.
+- **PFF**: drop NCAA exports into `data/pff/` and run
+  `python src/build_pff_features.py`. Two shapes are supported: per-season
+  position-page CSVs named like `rushing-grades__HB-FB-QB__2022.csv` (season
+  parsed from the filename) and the `pff_ncaa_all_positions_*` xlsx table.
+  Season rows are matched to draft classes through `data/draft_data.csv` by
+  normalized name within a 5-season window, so partial season sets work.
+  QB passing/rushing metrics are mapped now (pressure-to-sack, TWP, BTT,
+  accuracy, CPOE, PFF pass/run/offense grades, dropback-weighted career +
+  final season). `data/pff/` and PFF-derived feature files are gitignored -
+  never commit or publish raw PFF values.
+  Note: the "rushing grades HB-FB-QB" export is the passing-page table (rows
+  are players with dropbacks) - real RB/WR features need the position-page
+  Rushing report (YCO/attempt, elusive rating) and Receiving report (YPRR,
+  contested catch).
+- Position models measure production-feature coverage over the last 5 training
+  years, so licensed sources that only exist for recent classes can activate
+  without needing 20 years of history.
 - **CFBD**: get a free key at collegefootballdata.com/key, export
   `CFBD_API_KEY` (or add as a GitHub Actions secret), then
   `python src/download_cfbd.py --start-year 2004 --end-year 2025` pulls full

@@ -1,0 +1,48 @@
+name: Pull CFBD Data
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_year:
+        description: "First season to pull"
+        default: "2004"
+      end_year:
+        description: "Last season to pull"
+        default: "2025"
+
+jobs:
+  pull:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Pull CFBD data
+        env:
+          CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
+        run: |
+          if [ -z "$CFBD_API_KEY" ]; then
+            echo "CFBD_API_KEY secret is not set" >&2
+            exit 1
+          fi
+          python src/download_cfbd.py \
+            --start-year "${{ github.event.inputs.start_year }}" \
+            --end-year "${{ github.event.inputs.end_year }}"
+
+      - name: Upload CFBD data artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cfbd-data
+          path: data/cfbd/
+          retention-days: 30

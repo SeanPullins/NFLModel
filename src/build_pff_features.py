@@ -1,39 +1,38 @@
 """Convert PFF NCAA exports into position production features.
 
-Drop PFF exports (xlsx or csv) into data/pff/. Expected shape: the
-`pff_ncaa_all_positions_2015_2025` table (player-season rows with `_report`,
-`_season`, `draft_season`, `player`, `position` and PFF metric columns).
-Exports whose first row is a "Table name: ..." banner are handled.
+Drop PFF exports into data/pff/ (gitignored - licensed data, never commit):
 
-For each player/draft class this script aggregates seasons strictly before the
-draft year (career weighted by snaps where sensible, plus final season) and
-merges the mapped features into data/production/*.csv so the position models
-pick them up automatically.
+1. Per-season CSVs exported from PFF position pages, named like
+   `rushing-grades__HB-FB-QB__2022.csv` (season parsed from the filename).
+2. The `pff_ncaa_all_positions_*` xlsx table (has `_season` per row).
 
-PFF data is licensed: data/pff/ and the feature files carrying PFF values are
-gitignored and must never be committed or published raw. Model scores trained
-on them are fine to publish.
+Season rows are matched to draft classes through data/draft_data.csv by
+normalized player name: a drafted player's PFF seasons are those in the five
+years before his draft year. This works even when only some seasons have been
+exported. Ambiguous names (two drafted players in the same window) are skipped
+and logged.
 
-Currently mapped reports:
-    passing_grades  -> QB features (pressure-to-sack, TWP, BTT, accuracy, grade)
-
-Other report types in the full export (receiving, rushing, blocking, defense)
-are listed with their columns when encountered so mappings can be added.
+Currently mapped: QB passing/rushing metrics -> data/production/qb_production.csv
+(merged alongside the ESPN QBR features). Other report types are surfaced with
+row counts so mappings can be added as fuller exports arrive.
 """
 from __future__ import annotations
 
 import argparse
+import re
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-from pipeline import ROOT
+from pipeline import ROOT, norm
 
 PFF_DIR = ROOT / "data" / "pff"
 PRODUCTION_DIR = ROOT / "data" / "production"
+SEASON_FILE_RE = re.compile(r"__(\d{4})\.csv$")
+SEASON_WINDOW = 5  # college seasons can precede the draft by up to this many years
 
-QB_PASSING_MAP = {
+QB_METRIC_MAP = {
     "pressure_to_sack_rate": "qb_pressure_to_sack_rate",
     "sack_percent": "qb_sack_rate",
     "btt_rate": "qb_big_time_throw_rate",
@@ -41,10 +40,12 @@ QB_PASSING_MAP = {
     "accuracy_percent": "qb_adj_completion_pct",
     "comp_pct_diff": "qb_cpoe",
     "grades_pass": "qb_pff_pass_grade",
+    "grades_run": "qb_pff_run_grade",
+    "grades_offense": "qb_pff_offense_grade",
 }
 
 
-def read_pff_file(path: Path) -> pd.DataFrame:
+def read_banner_aware(path: Path) -> pd.DataFrame:
     if path.suffix.lower() in {".xlsx", ".xls"}:
         raw = pd.read_excel(path, header=None, nrows=2)
         header_row = 1 if str(raw.iloc[0, 0]).startswith("Table name") else 0
@@ -54,43 +55,94 @@ def read_pff_file(path: Path) -> pd.DataFrame:
     return pd.read_csv(path, header=header_row, low_memory=False)
 
 
-def load_pff() -> pd.DataFrame:
+def load_pff_seasons() -> pd.DataFrame:
+    """Normalize every export in data/pff/ into one player-season frame."""
     frames = []
     for path in sorted(PFF_DIR.glob("*")):
         if path.suffix.lower() not in {".xlsx", ".xls", ".csv"}:
             continue
-        print(f"Reading {path.name}")
-        frames.append(read_pff_file(path))
+        df = read_banner_aware(path)
+        if "_season" in df.columns:
+            df["season"] = pd.to_numeric(df["_season"], errors="coerce")
+        else:
+            match = SEASON_FILE_RE.search(path.name)
+            if not match:
+                print(f"Skipping {path.name}: no season column and no season in filename")
+                continue
+            df["season"] = int(match.group(1))
+        df["source_file"] = path.name
+        frames.append(df)
+        print(f"Read {path.name}: {len(df):,} rows, season(s) {int(df['season'].min())}-{int(df['season'].max())}")
     if not frames:
         raise FileNotFoundError(f"No PFF exports found in {PFF_DIR}")
-    df = pd.concat(frames, ignore_index=True)
-    for col in ["_season", "draft_season"]:
-        df[col] = pd.to_numeric(df.get(col), errors="coerce")
-    return df
+    out = pd.concat(frames, ignore_index=True)
+    out = out[out["player"].notna() & out["season"].notna()].copy()
+    out["season"] = out["season"].astype(int)
+    out["name_key"] = out["player"].map(norm)
+    # The same player-season can appear in several exports; keep the row with
+    # the most populated metric fields.
+    metric_cols = [c for c in QB_METRIC_MAP if c in out.columns]
+    out["_filled"] = out[metric_cols].notna().sum(axis=1) if metric_cols else 0
+    out = out.sort_values("_filled", ascending=False).drop_duplicates(["name_key", "season"], keep="first")
+    return out.drop(columns=["_filled"])
 
 
-def aggregate_qb_passing(df: pd.DataFrame) -> pd.DataFrame:
-    qb = df[df["_report"].astype(str).eq("passing_grades")].copy()
-    qb = qb[qb["draft_season"].notna() & qb["player"].notna()]
-    qb = qb[qb["_season"] < qb["draft_season"]]
+def load_draft_classes() -> pd.DataFrame:
+    draft = pd.read_csv(ROOT / "data" / "draft_data.csv")
+    draft = draft[draft["Player"].notna() & draft["Year"].notna()].copy()
+    draft["Year"] = pd.to_numeric(draft["Year"], errors="coerce").astype(int)
+    draft["name_key"] = draft["Player"].map(norm)
+    return draft
+
+
+def match_to_draft_classes(pff: pd.DataFrame, draft: pd.DataFrame, positions: tuple[str, ...]) -> pd.DataFrame:
+    """Attach each PFF season row to the drafted player it belongs to."""
+    scope = draft[draft["Pos"].astype(str).str.upper().isin(positions)]
+    counts = scope.groupby("name_key")["Year"].nunique()
+    ambiguous = set(counts[counts > 1].index)
+
+    merged = pff.merge(
+        scope[["name_key", "Year", "Player", "Pos"]],
+        on="name_key",
+        how="inner",
+        suffixes=("", "_draft"),
+    )
+    window = (merged["season"] < merged["Year"]) & (merged["season"] >= merged["Year"] - SEASON_WINDOW)
+    merged = merged[window]
+    ambiguous_used = merged[merged["name_key"].isin(ambiguous)]
+    if len(ambiguous_used):
+        multi = merged[merged["name_key"].isin(ambiguous)].groupby("name_key")["Year"].nunique()
+        drop_keys = set(multi[multi > 1].index)
+        if drop_keys:
+            print(f"Skipping {len(drop_keys)} ambiguous names matching multiple draft classes: {sorted(drop_keys)[:5]}...")
+            merged = merged[~merged["name_key"].isin(drop_keys)]
+    return merged
+
+
+def aggregate_qb(matched: pd.DataFrame) -> pd.DataFrame:
+    qb = matched[matched["position"].astype(str).str.upper().eq("QB")].copy()
     if qb.empty:
         return pd.DataFrame()
     qb["dropbacks"] = pd.to_numeric(qb.get("dropbacks"), errors="coerce").fillna(0.0)
-    for src in QB_PASSING_MAP:
-        qb[src] = pd.to_numeric(qb.get(src), errors="coerce")
+    for src in QB_METRIC_MAP:
+        if src in qb.columns:
+            qb[src] = pd.to_numeric(qb[src], errors="coerce")
 
     rows = []
-    for (player, draft_year), g in qb.groupby(["player", "draft_season"]):
-        g = g.sort_values("_season")
+    for (name_key, year), g in qb.groupby(["name_key", "Year"]):
+        g = g.sort_values("season")
         final = g.iloc[-1]
         weights = g["dropbacks"].clip(lower=1)
         row = {
-            "Year": int(draft_year),
-            "Player": str(player).strip(),
+            "Year": int(year),
+            "Player": str(final["Player"]).strip(),
             "Pos": "QB",
             "qb_pff_dropbacks": float(g["dropbacks"].sum()),
+            "qb_pff_seasons": int(g["season"].nunique()),
         }
-        for src, dst in QB_PASSING_MAP.items():
+        for src, dst in QB_METRIC_MAP.items():
+            if src not in g.columns:
+                continue
             values = g[src]
             mask = values.notna()
             row[dst] = float(np.average(values[mask], weights=weights[mask])) if mask.any() else np.nan
@@ -103,15 +155,12 @@ def merge_into_production(features: pd.DataFrame, filename: str) -> Path:
     path = PRODUCTION_DIR / filename
     if path.exists():
         existing = pd.read_csv(path)
-        merged = existing.merge(
-            features.drop(columns=[c for c in ["Pos"] if c in features.columns]),
-            on=["Year", "Player"],
-            how="outer",
-            suffixes=("", "_pff_dup"),
-        )
-        merged = merged[[c for c in merged.columns if not c.endswith("_pff_dup")]]
+        drop = [c for c in features.columns if c in existing.columns and c not in ("Year", "Player")]
+        existing = existing.drop(columns=drop)
+        merged = existing.merge(features.drop(columns=["Pos"], errors="ignore"), on=["Year", "Player"], how="outer")
     else:
         merged = features
+    PRODUCTION_DIR.mkdir(parents=True, exist_ok=True)
     merged.to_csv(path, index=False)
     return path
 
@@ -120,23 +169,21 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.parse_args()
 
-    df = load_pff()
-    print(f"PFF rows: {len(df):,} | seasons {int(df['_season'].min())}-{int(df['_season'].max())}")
-    reports = df["_report"].astype(str).value_counts().to_dict()
-    print("Reports found:", reports)
+    pff = load_pff_seasons()
+    draft = load_draft_classes()
 
-    qb = aggregate_qb_passing(df)
+    matched = match_to_draft_classes(pff, draft, positions=("QB", "HB", "FB", "RB", "WR", "TE"))
+    qb = aggregate_qb(matched)
     if not qb.empty:
         path = merge_into_production(qb, "qb_production.csv")
-        cov = qb.groupby("Year").size().to_dict()
-        print(f"Merged {len(qb)} QB rows into {path}; classes: {cov}")
+        print(f"Merged {len(qb)} QB draft-class rows into {path}")
+        print("QB classes covered:", qb.groupby("Year").size().to_dict())
 
-    unmapped = [r for r in reports if r != "passing_grades"]
-    if unmapped:
-        print("\nUnmapped report types (add mappings in this script):")
-        for report in unmapped:
-            cols = df.loc[df["_report"].astype(str).eq(report)].dropna(axis=1, how="all").columns
-            print(f"  {report}: {len(cols)} non-empty columns")
+    seasons = sorted(pff["season"].unique())
+    print("\nPFF seasons on hand:", seasons)
+    missing = [y for y in range(2014, 2026) if y not in seasons]
+    if missing:
+        print("Missing seasons for full QB coverage:", missing)
 
 
 if __name__ == "__main__":

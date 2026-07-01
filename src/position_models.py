@@ -52,15 +52,30 @@ def position_family(pos_g: str) -> str:
     return "OTHER"
 
 
-def available_extra_features(train: pd.DataFrame, positions: tuple[str, ...], min_coverage: float) -> list[str]:
+def available_extra_features(
+    train: pd.DataFrame,
+    positions: tuple[str, ...],
+    min_coverage: float,
+    recent_years: int = 5,
+) -> list[str]:
+    """Production features with enough coverage in the recent training era.
+
+    Licensed/keyed sources (PFF, ESPN QBR) only exist for later classes, so
+    coverage is measured over the last `recent_years` of training data - the
+    era the model is about to be applied to. Older rows stay NaN, which
+    LightGBM handles natively.
+    """
     wanted: list[str] = []
     for pos in positions:
         wanted.extend(production_features_for_pos(pos))
+    recent_cutoff = pd.to_numeric(train["Year"], errors="coerce").max() - (recent_years - 1)
+    recent = train[pd.to_numeric(train["Year"], errors="coerce") >= recent_cutoff]
+    scope = recent if len(recent) >= 100 else train
     out: list[str] = []
     for col in sorted(set(wanted)):
         if col not in train.columns:
             continue
-        coverage = pd.to_numeric(train[col], errors="coerce").notna().mean()
+        coverage = pd.to_numeric(scope[col], errors="coerce").notna().mean()
         if coverage >= min_coverage:
             out.append(col)
     return out

@@ -15,6 +15,7 @@ Current rule:
 - **Raw APEX is the board grade**. APEX+ remains experimental until a factor earns promotion.
 - **NCAA production features from `phcs971/nfl-draft-dataset` are now included** in the model pipeline.
 - **NFL career stats are excluded from feature inputs** to avoid outcome leakage.
+- **Feature ablation backtests now compare profile-only, production-only, offensive-only, defensive-only, and position-specific variants.**
 - **The 2011-2021 validation workflow remains the gatekeeper** for any accuracy claim.
 
 ## Production features added from source data
@@ -46,7 +47,7 @@ These come from college production only. They do **not** use NFL outcomes such a
 ## Architecture
 
 1. **Market baseline** — isotonic regression from pick to outcome, with optional per-position blending.
-2. **Raw APEX residual model** — 5-seed bagged LightGBM on position-normalized combine/profile features, age, shrunken college encoding, and NCAA production features.
+2. **Raw APEX residual model** — 5-seed bagged LightGBM on position-normalized combine/profile features, age, shrunken college encoding, and optional NCAA production features.
 3. **Per-position shrinkage** — residual weight tuned by position on an earlier validation fold, then applied to the out-of-time test fold.
 4. **APEX+ experimental residual amplification** — `market + factor x (raw APEX - market)`, clipped to a 1-99 percentile range. This is not promoted unless the factor sweep passes gates.
 
@@ -63,6 +64,7 @@ src/
   improve.py                   train + original holdout evaluation
   backtest.py                  rolling out-of-time validation with --end-year support
   sweep_apex_factor.py         sweeps APEX+ residual factors and gates promotion
+  ablation_backtest.py         compares profile/production/position-specific feature families
   experiment_feature_sets.py   compares profile-only vs postdraft-interaction residual features
   predraft_backtest.py         evaluates true pre-draft market/prospect forecasting
   position_models.py           tests position-family residual models with --end-year support
@@ -71,7 +73,7 @@ src/
   template.html                dashboard template
 
 .github/workflows/
-  run-backtests.yml            downloads sources, runs backtests, factor sweep, gates, uploads reports
+  run-backtests.yml            downloads sources, runs backtests, factor sweep, ablations, gates, uploads reports
 
 data/
   apex_board.csv      generated board used by dashboard
@@ -83,7 +85,7 @@ data/
   SOURCES.md          raw-data source notes
 
 reports/
-  generated holdout, rolling backtest, factor sweep, feature coverage, and experiment outputs
+  generated holdout, rolling backtest, factor sweep, feature ablation, feature coverage, and experiment outputs
 ```
 
 ## Raw data setup
@@ -121,6 +123,7 @@ python src/download_source_data.py
 python src/backtest.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --apex-plus-factor 3.5
 python src/sweep_apex_factor.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --factors "0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3,3.25,3.5"
 python src/position_models.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --apex-plus-factor 3.5
+python src/ablation_backtest.py --first-test-year 2011 --last-test-year 2021 --end-year 2021
 python src/validation_gates.py reports/rolling_backtest_summary.csv --out reports/rolling_validation_gates.json
 python src/validation_gates.py reports/position_model_backtest_summary.csv --out reports/position_model_validation_gates.json
 ```
@@ -139,6 +142,7 @@ python src/download_source_data.py
 python src/backtest.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --apex-plus-factor 3.5
 python src/sweep_apex_factor.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --factors "0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3,3.25,3.5"
 python src/position_models.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --apex-plus-factor 3.5
+python src/ablation_backtest.py --first-test-year 2011 --last-test-year 2021 --end-year 2021
 ```
 
 Key outputs:
@@ -151,9 +155,32 @@ reports/apex_factor_sweep_by_year.csv
 reports/apex_factor_sweep_report.json
 reports/position_model_backtest_summary.csv
 reports/position_model_backtest_report.json
+reports/feature_ablation_summary.csv
+reports/feature_ablation_by_year.csv
+reports/feature_ablation_report.json
 reports/rolling_validation_gates.json
 reports/position_model_validation_gates.json
 ```
+
+## Feature ablation checks
+
+`src/ablation_backtest.py` compares:
+
+- `global_profile_only`
+- `global_profile_plus_all_production`
+- `global_production_only`
+- `global_offensive_production_only`
+- `global_defensive_production_only`
+- `position_profile_only`
+- `position_profile_plus_all_production`
+
+The main comparison metric is:
+
+```text
+delta_candidate_vs_pick_spearman_drafted
+```
+
+A production feature family should not be promoted unless it beats profile-only on average lift, median lift, win rate, and worst-window behavior.
 
 ## Promotion rule
 

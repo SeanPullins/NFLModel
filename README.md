@@ -2,15 +2,17 @@
 
 Two-stage residual NFL draft model + interactive scouting dashboard covering historical classes and forward-looking prospect watchlists.
 
-The original v1.1 holdout reported **Spearman ρ 0.630** on 2012-14 drafted players versus **0.619** for a pick-only market baseline. v1.2 keeps the same residual-over-market idea, but upgrades the training code so validation is cleaner and repeatable.
+The live v1.2.1 board reports **APEX+ Spearman ρ 0.697** on the 2012-14 official holdout versus **0.615** for the pick-only market baseline. Across the four published rolling validation windows from 2008-2020, APEX+ improves over the market in **4 of 4 windows**, with **average lift +0.083** and **median lift +0.080**.
 
-## What changed in v1.2
+## What changed in v1.2+
 
-- **Fold-safe college encoding** — college strength is fit on the training fold only, then mapped onto validation/test/prospect rows.
+- **Fold-safe college encoding** — college strength is fit on the training fold only, then mapped to validation/test/prospect rows.
 - **Fold-safe athletic normalization** — position z-scores are learned from the training fold only instead of the full dataframe.
 - **Repo-relative paths** — scripts now read from `data/` or `APEX_DATA_DIR` instead of hardcoded scratch paths.
-- **Rolling backtests** — added `src/backtest.py` to test year-by-year instead of relying on one 2012-14 window.
-- **Validation artifacts** — holdout and rolling validation outputs write to `reports/`.
+- **Rolling backtests** — `src/backtest.py` now reports raw APEX and APEX+ versus pick-only/market baselines.
+- **APEX+ validation artifact** — committed CSV/JSON summaries show average and median lift across rolling windows.
+- **Public validation page** — `docs/validation.html` shows the rolling-window scoreboard and links to downloadable CSV/JSON.
+- **Experiment harness** — `src/experiment_feature_sets.py` tests whether adding post-draft interaction features improves the residual before promoting the change.
 - **Model card** — assumptions, target definition, leakage controls, and known limitations are documented in `docs/MODEL_CARD.md`.
 
 ## Live dashboard
@@ -18,7 +20,7 @@ The original v1.1 holdout reported **Spearman ρ 0.630** on 2012-14 drafted play
 Deploy free on GitHub Pages:
 
 ```bash
-git init && git add . && git commit -m "APEX v1.2"
+git init && git add . && git commit -m "APEX v1.2.1"
 gh repo create apex-draft-model --public --source=. --push
 ```
 
@@ -26,40 +28,54 @@ Then: repo **Settings → Pages → Source: main / `/docs`**.
 
 The dashboard reads `data/apex_board.csv`, builds a searchable board, and displays pick-vs-outcome, surplus, and player-level scoring views.
 
+Useful public pages:
+
+- `docs/index.html` — board
+- `docs/model.html` — model explanation
+- `docs/validation.html` — rolling validation summary
+- `docs/rolling_backtest_summary.csv` — downloadable validation CSV
+- `docs/rolling_backtest_report.json` — downloadable validation JSON
+
 ## Architecture
 
 1. **Market baseline** — isotonic regression from pick → outcome, with optional per-position blending.
-2. **Athletic residual** — 5-seed bagged LightGBM on position-normalized combine/profile features, age, and shrunken college encoding.
+2. **Athletic/profile residual** — 5-seed bagged LightGBM on position-normalized combine/profile features, age, and shrunken college encoding.
 3. **Per-position shrinkage** — residual weight tuned by position on an earlier validation fold, then applied to the out-of-time test fold.
+4. **APEX+ residual amplification** — headline projection uses `market + 3.5 × (raw APEX - market)`, clipped to a 1-99 percentile range.
 
 **Target:** within-class Career AV percentile. This is a ranking target, not a calibrated projection of exact career value.
 
-**Important interpretation:** APEX should be judged by whether it improves the rank ordering of prospects over the draft market. A small Spearman lift can be useful, but it is not proof that the model consistently beats NFL teams.
+**Important interpretation:** APEX should be judged by whether it improves the rank ordering of prospects over the draft market. The strongest claim is not one holdout score; it is repeated lift over rolling out-of-time windows.
 
 ## Repo layout
 
 ```text
 src/
-  pipeline.py     shared loading, feature, baseline, residual, and metric utilities
-  improve.py      v1.2 train + original 2012-14 holdout evaluation
-  backtest.py     rolling out-of-time validation
-  build_site.py   static dashboard builder
-  template.html   dashboard template
+  pipeline.py                  shared loading, feature, baseline, residual, and metric utilities
+  improve.py                   v1.2 train + original 2012-14 holdout evaluation
+  backtest.py                  rolling out-of-time validation, including APEX+
+  experiment_feature_sets.py   compares profile-only vs postdraft-interaction residual features
+  build_site.py                static dashboard builder
+  template.html                dashboard template
 
 data/
   apex_board.csv  generated board used by dashboard
   SOURCES.md      raw-data source notes
 
 docs/
-  index.html      GitHub Pages dashboard
-  MODEL_CARD.md   model assumptions, limits, validation protocol
-  VALIDATION.md   validation guidance and interpretation
+  index.html                     GitHub Pages dashboard
+  model.html                     model explanation
+  validation.html                rolling validation page
+  rolling_backtest_summary.csv   public validation CSV
+  rolling_backtest_report.json   public validation JSON
+  MODEL_CARD.md                  model assumptions, limits, validation protocol
+  VALIDATION.md                  validation guidance and interpretation
 
 models/
   generated LightGBM/isotonic artifacts after running src/improve.py
 
 reports/
-  generated holdout and rolling backtest outputs
+  generated holdout, rolling backtest, and experiment outputs
 ```
 
 ## Raw data setup
@@ -99,7 +115,7 @@ reports/holdout_2012_2014_scored.csv
 ## Rolling validation
 
 ```bash
-python src/backtest.py --first-test-year 2011 --last-test-year 2016
+python src/backtest.py --first-test-year 2011 --last-test-year 2016 --apex-plus-factor 3.5
 ```
 
 This writes:
@@ -113,10 +129,27 @@ reports/rolling_backtest_report.json
 The key number to watch is:
 
 ```text
-delta_apex_vs_pick_spearman_drafted
+delta_plus_vs_pick_spearman_drafted
 ```
 
-Positive means APEX ranked drafted players better than the pick-only market baseline for that test year.
+Positive means APEX+ ranked drafted players better than the pick-only market baseline for that test year.
+
+## Candidate feature experiment
+
+Before changing the production model, compare the current profile-only residual against a post-draft interaction residual that also includes `logpick`:
+
+```bash
+python src/experiment_feature_sets.py --first-test-year 2011 --last-test-year 2016 --apex-plus-factor 3.5
+```
+
+This writes:
+
+```text
+reports/feature_set_experiment_summary.csv
+reports/feature_set_experiment_report.json
+```
+
+Promote the post-draft interaction feature set only if it improves average and median lift without lowering the window win rate.
 
 ## Roadmap
 

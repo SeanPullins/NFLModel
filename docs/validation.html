@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>APEX Rolling Validation</title>
+<style>
+:root{color-scheme:dark;--bg:#0e1116;--surface:#151b24;--raised:#1b2230;--line:rgba(231,237,246,.10);--ink:#e9edf3;--dim:#8d97a8;--faint:#5d6675;--amber:#e8a33d;--green:#3fb97c;--red:#e25c5c;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{margin:0;background:var(--bg);color:var(--ink);line-height:1.55}.wrap{max-width:1040px;margin:0 auto;padding:28px 22px 56px}a{color:var(--amber);text-decoration:none}a:hover{text-decoration:underline}.eyebrow{font:700 11px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.18em;text-transform:uppercase;color:var(--amber)}h1{font-size:42px;line-height:1;margin:10px 0 8px}p{color:var(--dim)}.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:22px 0}.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}.card b{display:block;font:800 28px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ink)}.card b.good{color:var(--green)}.card small{display:block;margin-top:6px;color:var(--faint);text-transform:uppercase;font-size:11px;letter-spacing:.06em}table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin:18px 0}th,td{padding:11px 12px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--faint);font-size:11px;text-transform:uppercase;letter-spacing:.08em}td.num{text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.good{color:var(--green)}.note{background:var(--raised);border-left:3px solid var(--amber);border-radius:0 10px 10px 0;padding:12px 14px;color:var(--dim)}code{background:var(--raised);border-radius:5px;padding:2px 6px;color:var(--amber)}@media(max-width:760px){.cards{grid-template-columns:1fr 1fr}h1{font-size:34px}table{font-size:13px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a href="index.html">&larr; Back to board</a>
+<div class="eyebrow">APEX validation · rolling windows</div>
+<h1>Rolling validation summary</h1>
+<p>This page turns the headline 2012–2014 holdout into a harder audit: APEX+ is compared with the draft-market baseline across four independent multi-year windows.</p>
+
+<div class="cards">
+  <div class="card"><b class="good">+0.083</b><small>Avg APEX+ lift</small></div>
+  <div class="card"><b class="good">+0.080</b><small>Median lift</small></div>
+  <div class="card"><b class="good">4 / 4</b><small>Windows won</small></div>
+  <div class="card"><b>3.5×</b><small>Residual factor</small></div>
+</div>
+
+<table>
+<thead><tr><th>Validation window</th><th class="num">Market</th><th class="num">Raw APEX</th><th class="num">APEX+</th><th class="num">APEX+ lift</th></tr></thead>
+<tbody>
+<tr><td>2008–2011</td><td class="num">0.585</td><td class="num">0.625</td><td class="num good">0.689</td><td class="num good">+0.104</td></tr>
+<tr><td>2012–2014 official holdout</td><td class="num">0.615</td><td class="num">0.658</td><td class="num good">0.697</td><td class="num good">+0.082</td></tr>
+<tr><td>2015–2017</td><td class="num">0.596</td><td class="num">0.637</td><td class="num good">0.674</td><td class="num good">+0.078</td></tr>
+<tr><td>2018–2020</td><td class="num">0.601</td><td class="num">0.641</td><td class="num good">0.670</td><td class="num good">+0.069</td></tr>
+</tbody>
+</table>
+
+<div class="note">
+  <b>Interpretation:</b> this is stronger than a single-holdout claim because APEX+ beats the market in every published window. It is still not final proof of future superiority; the CSV/JSON should be regenerated from raw data with <code>python src/backtest.py --apex-plus-factor 3.5</code> whenever the dataset changes.
+</div>
+
+<p><a href="rolling_backtest_summary.csv">Download CSV</a> · <a href="rolling_backtest_report.json">Download JSON</a> · <a href="model.html">How APEX works</a></p>
+</div>
+</body>
+</html>

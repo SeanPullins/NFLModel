@@ -30,12 +30,14 @@ jobs:
   backtest:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       actions: read
 
     steps:
       - name: Check out repo
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -117,6 +119,19 @@ jobs:
           python src/validation_gates.py reports/position_model_backtest_summary.csv --delta-col delta_raw_vs_pick_spearman_drafted --out reports/position_model_validation_gates.json
           python src/validation_gates.py reports/position_ensemble_backtest_summary.csv --delta-col delta_ensemble_vs_pick_spearman_drafted --out reports/position_ensemble_validation_gates.json
           python src/validation_gates.py reports/nested_factor_backtest_summary.csv --delta-col delta_nested_vs_pick_spearman_drafted --out reports/nested_factor_validation_gates.json
+
+      - name: Commit generated site files
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html docs/index.html data/apex_board.csv
+          if git diff --cached --quiet; then
+            echo "No generated site changes to commit."
+          else
+            git commit -m "Update generated APEX site"
+            git push
+          fi
 
       - name: Show report summaries
         if: always()

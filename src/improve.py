@@ -1,68 +1,167 @@
-import pandas as pd, numpy as np, lightgbm as lgb, joblib
-from scipy.stats import spearmanr
-from sklearn.isotonic import IsotonicRegression
-from sklearn.metrics import roc_auc_score
-exec(open("pipeline.py").read().split("# ---- time-based evaluation")[0])
+"""Train APEX v1.2 and reproduce the original 2012-2014 holdout.
 
-FEATS = FEATS_A
-def make_baseline(train):
-    isos={}
-    glob = IsotonicRegression(out_of_bounds="clip").fit(-train.Pick, train.y)
-    for p,g in train.groupby("pos_g",observed=True):
-        if len(g)>=300: isos[p]=IsotonicRegression(out_of_bounds="clip").fit(-g.Pick,g.y)
-    def base(part):
-        out = glob.predict(-part.Pick)
-        for p,iso in isos.items():
-            m = part.pos_g==p
-            if m.any(): out[m.values] = .5*out[m.values] + .5*iso.predict(-part.Pick[m])
-        return out
-    return base, glob, isos
+This script now uses fold-safe utilities from pipeline.py:
+- college encodings are fit on train only
+- athletic z-scores are fit on train only
+- file paths are repo-relative or configured by APEX_DATA_DIR
+"""
+from __future__ import annotations
 
-def make_resid(train, base, seeds=(1,2,3,4,5)):
-    r = train.y - base(train)
-    ms=[]
-    for s in seeds:
-        m = lgb.LGBMRegressor(objective="regression", learning_rate=.02, num_leaves=15,
-            min_data_in_leaf=80, feature_fraction=.7, bagging_fraction=.8, bagging_freq=1,
-            lambda_l2=5.0, n_estimators=600, verbose=-1, random_state=s)
-        m.fit(train[FEATS+CATS], r, categorical_feature=CATS); ms.append(m)
-    return lambda part: np.mean([m.predict(part[FEATS+CATS]) for m in ms],0), ms
+import json
 
-tr = df[df.Year<=2009].copy(); va = df[(df.Year>=2010)&(df.Year<=2011)].copy()
-te = df[(df.Year>=2012)&(df.Year<=2014)].copy()
-for p_ in (tr,va,te): p_["col_enc"]=college_enc(tr,p_)
-base,_ ,_ = make_baseline(tr); resid,_ = make_resid(tr, base)
+import joblib
+import numpy as np
+import pandas as pd
 
-# per-position shrinkage tuned on validation (drafted)
-vd = va[va.Pick<260].copy(); vd_b=base(vd); vd_r=resid(vd)
-shr={}
-for p,g in vd.groupby("pos_g",observed=True):
-    i=vd.pos_g==p; cand=np.arange(0,1.05,.1)
-    shr[p]=float(max(cand,key=lambda s:spearmanr(vd_b[i.values]+s*vd_r[i.values],g.y).statistic)) if len(g)>=40 else .4
-print("per-pos shrink:",shr)
+from pipeline import (
+    CATS,
+    FEATS_A,
+    ROOT,
+    load_dataset,
+    make_baseline,
+    make_pick_baseline,
+    make_resid,
+    metric_row,
+    prepare_fold,
+    safe_spearman,
+    score_apex,
+    tune_position_shrinkage,
+)
 
-# final eval: train 2000-2011
-tr2=df[df.Year<=2011].copy(); tr2["col_enc"]=college_enc(tr2,tr2); te["col_enc"]=college_enc(tr2,te)
-base,_,_=make_baseline(tr2); resid,_=make_resid(tr2,base)
-td=te[te.Pick<260].copy(); b=base(td); r=resid(td)
-s_vec=td.pos_g.map(shr).fillna(.4).values
-apex=b+s_vec*r
-print("TEST 2012-14 | pick-only:",round(spearmanr(IsotonicRegression(out_of_bounds='clip').fit(-tr2.Pick,tr2.y).predict(-td.Pick),td.y).statistic,4),
-      "| pos-iso base:",round(spearmanr(b,td.y).statistic,4),
-      "| APEX v1.1:",round(spearmanr(apex,td.y).statistic,4),
-      "| hitAUC:",round(roc_auc_score(td.hit,apex),4))
-for p,g in td.groupby("pos_g",observed=True):
-    if len(g)>=60:
-        i=(td.pos_g==p).values
-        print(f"{p:5s} APEX={spearmanr(apex[i],g.y).statistic:.3f}  base={spearmanr(b[i],g.y).statistic:.3f}  shr={shr.get(p,.4)}")
+HOLDOUT_TRAIN_END = 2009
+HOLDOUT_VALID_START = 2010
+HOLDOUT_VALID_END = 2011
+HOLDOUT_TEST_START = 2012
+HOLDOUT_TEST_END = 2014
 
-# production refit on all data
-df["col_enc"]=college_enc(df,df)
-baseF,glob,isos=make_baseline(df); residF,ms=make_resid(df,baseF)
-bF=baseF(df); rF=residF(df)
-df["apex"]=bF+df.pos_g.map(shr).fillna(.4).values*rF
-df["exp_at_pick"]=bF; df["talent_resid"]=rF; df["surplus"]=df.apex-df.exp_at_pick
-df[["Year","Player","Pos","pos_g","College" if "College" in df else "college","Pick","Rnd","CarAV","y","apex","exp_at_pick","talent_resid","surplus"]]\
-  .rename(columns={"college":"College"}).round(4).to_csv("/home/claude/apex_board.csv",index=False)
-for i,m in enumerate(ms): m.booster_.save_model(f"/home/claude/apex_resid_{i}.txt")
-joblib.dump({"glob":glob,"isos":isos,"shrink":shr},"/home/claude/apex_baseline.pkl")
+
+def evaluate_holdout(df: pd.DataFrame) -> tuple[pd.DataFrame, dict, dict]:
+    """Run the original 2012-2014 benchmark with fold-safe transforms."""
+    train_raw = df[df["Year"] <= HOLDOUT_TRAIN_END].copy()
+    valid_raw = df[(df["Year"] >= HOLDOUT_VALID_START) & (df["Year"] <= HOLDOUT_VALID_END)].copy()
+    test_raw = df[(df["Year"] >= HOLDOUT_TEST_START) & (df["Year"] <= HOLDOUT_TEST_END)].copy()
+
+    train, valid = prepare_fold(train_raw, valid_raw)
+    base, _, _ = make_baseline(train)
+    resid, _ = make_resid(train, base)
+    shrink = tune_position_shrinkage(valid, base, resid)
+
+    # Final fit uses all pre-test data after shrinkage was selected on 2010-2011.
+    train2_raw = df[df["Year"] <= HOLDOUT_VALID_END].copy()
+    train2, test, feature_stats = prepare_fold(train2_raw, test_raw, return_stats=True)
+    pick_only, _ = make_pick_baseline(train2)
+    base2, _, _ = make_baseline(train2)
+    resid2, _ = make_resid(train2, base2)
+
+    scored = test.copy()
+    scored["pick_only"] = pick_only(scored)
+    scored["pos_base"] = base2(scored)
+    scored["apex"] = score_apex(scored, base2, resid2, shrink)
+
+    metrics = {
+        "window": {
+            "train": f"<= {HOLDOUT_VALID_END}",
+            "validation_for_shrinkage": f"{HOLDOUT_VALID_START}-{HOLDOUT_VALID_END}",
+            "test": f"{HOLDOUT_TEST_START}-{HOLDOUT_TEST_END}",
+        },
+        "pick_only": metric_row(scored, "pick_only"),
+        "pos_base": metric_row(scored, "pos_base"),
+        "apex": metric_row(scored, "apex"),
+        "position": {},
+        "shrink": shrink,
+    }
+
+    drafted = scored[scored["Pick"].lt(263)].copy()
+    for pos, group in drafted.groupby("pos_g", observed=True):
+        if len(group) >= 60:
+            metrics["position"][str(pos)] = {
+                "n": int(len(group)),
+                "apex_spearman": safe_spearman(group["apex"], group["y"]),
+                "pos_base_spearman": safe_spearman(group["pos_base"], group["y"]),
+                "pick_only_spearman": safe_spearman(group["pick_only"], group["y"]),
+                "shrink": shrink.get(str(pos), 0.4),
+            }
+
+    return scored, metrics, {"feature_stats": feature_stats, "shrink": shrink}
+
+
+def fit_production_board(df: pd.DataFrame, shrink: dict[str, float]) -> tuple[pd.DataFrame, dict]:
+    """Fit on all available historical data and write the model board."""
+    train, scored, feature_stats = prepare_fold(df, df, return_stats=True)
+    base, glob, isos = make_baseline(train)
+    resid, models = make_resid(train, base)
+
+    scored = scored.copy()
+    scored["apex"] = score_apex(scored, base, resid, shrink)
+    scored["exp_at_pick"] = base(scored)
+    scored["talent_resid"] = resid(scored)
+    scored["surplus"] = scored["apex"] - scored["exp_at_pick"]
+
+    out = pd.DataFrame(
+        {
+            "Year": scored["Year"],
+            "Player": scored["Player"],
+            "Pos": scored["Pos"],
+            "pos_g": scored["pos_g"].astype(str),
+            "College": scored["college"],
+            "Pick": scored["Pick"],
+            "Rnd": scored.get("Rnd", np.nan),
+            "CarAV": scored["CarAV"],
+            "y": scored["y"],
+            "apex": scored["apex"],
+            "exp_at_pick": scored["exp_at_pick"],
+            "talent_resid": scored["talent_resid"],
+            "surplus": scored["surplus"],
+        }
+    )
+
+    artifacts = {
+        "glob": glob,
+        "isos": isos,
+        "shrink": shrink,
+        "feature_stats": feature_stats,
+        "resid_models": models,
+    }
+    return out, artifacts
+
+
+def main() -> None:
+    df = load_dataset()
+    holdout_scored, metrics, fit_objects = evaluate_holdout(df)
+
+    reports_dir = ROOT / "reports"
+    data_dir = ROOT / "data"
+    models_dir = ROOT / "models"
+    reports_dir.mkdir(exist_ok=True)
+    data_dir.mkdir(exist_ok=True)
+    models_dir.mkdir(exist_ok=True)
+
+    (reports_dir / "holdout_2012_2014_metrics.json").write_text(json.dumps(metrics, indent=2))
+    holdout_scored.round(4).to_csv(reports_dir / "holdout_2012_2014_scored.csv", index=False)
+
+    board, artifacts = fit_production_board(df, fit_objects["shrink"])
+    board.round(4).to_csv(data_dir / "apex_board.csv", index=False)
+
+    for i, model in enumerate(artifacts["resid_models"]):
+        model.booster_.save_model(str(models_dir / f"apex_resid_{i}.txt"))
+
+    joblib.dump(
+        {
+            "glob": artifacts["glob"],
+            "isos": artifacts["isos"],
+            "shrink": artifacts["shrink"],
+            "feature_stats": artifacts["feature_stats"],
+            "features": FEATS_A,
+            "categoricals": CATS,
+        },
+        models_dir / "apex_baseline_and_transforms.pkl",
+    )
+
+    print(json.dumps(metrics, indent=2))
+    print(f"Wrote {data_dir / 'apex_board.csv'}")
+    print(f"Wrote reports to {reports_dir}")
+    print(f"Wrote models to {models_dir}")
+
+
+if __name__ == "__main__":
+    main()

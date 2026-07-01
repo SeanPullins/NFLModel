@@ -26,7 +26,6 @@ from backtest import DEFAULT_APEX_PLUS_FACTOR, aggregate_report, flatten_metrics
 from build_features import merge_optional_features
 from feature_registry import ENRICHED_FEATURE_FILE, POSITION_MODEL_GROUPS, production_features_for_pos
 from pipeline import (
-    CATS,
     FEATS_A,
     ROOT,
     load_dataset,
@@ -35,7 +34,6 @@ from pipeline import (
     make_resid,
     metric_row,
     prepare_fold,
-    safe_spearman,
     score_apex,
     tune_position_shrinkage,
 )
@@ -184,6 +182,7 @@ def evaluate_year(
     row["delta_plus_vs_pick_spearman_drafted"] = row["position_apex_plus_spearman_drafted"] - row["pick_only_spearman_drafted"]
     row["delta_plus_vs_market_spearman_drafted"] = row["position_apex_plus_spearman_drafted"] - row["market_spearman_drafted"]
     row["delta_raw_vs_pick_spearman_drafted"] = row["position_apex_raw_spearman_drafted"] - row["pick_only_spearman_drafted"]
+    row["delta_plus_vs_raw_spearman_drafted"] = row["position_apex_plus_spearman_drafted"] - row["position_apex_raw_spearman_drafted"]
     return row, fit_report
 
 

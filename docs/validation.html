@@ -14,30 +14,32 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.55}.wrap{max-w
 <a href="index.html">&larr; Back to board</a>
 <div class="eyebrow">APEX validation · current status</div>
 <h1>Validation status</h1>
-<p>The regenerated public-source run did not reproduce the old 0.697 APEX+ headline. Raw APEX is the honest baseline until an APEX+ factor passes promotion gates.</p>
+<p>The public board now uses profile-only raw APEX. NCAA production and APEX+ amplification remain experimental because ablation and factor-sweep validation did not justify promotion.</p>
 
 <div class="cards">
-  <div class="card"><b class="good">Raw</b><small>Current headline model</small></div>
-  <div class="card"><b class="bad">3.5x</b><small>Not promoted</small></div>
-  <div class="card"><b>2011-2021</b><small>Next validation window</small></div>
-  <div class="card"><b>0 to 3.5</b><small>Factor sweep</small></div>
+  <div class="card"><b class="good">Profile</b><small>Default board</small></div>
+  <div class="card"><b>Raw</b><small>Headline model</small></div>
+  <div class="card"><b class="bad">APEX+</b><small>Not promoted</small></div>
+  <div class="card"><b class="bad">Production</b><small>Experimental</small></div>
 </div>
 
 <table>
 <thead><tr><th>Model / factor</th><th>Status</th><th>Rule</th></tr></thead>
 <tbody>
 <tr><td>Pick-only market</td><td>Baseline</td><td>Every model must beat draft slot.</td></tr>
-<tr><td>Raw APEX</td><td class="good">Current honest headline</td><td>Residual model before APEX+ amplification.</td></tr>
+<tr><td>Global profile-only raw APEX</td><td class="good">Public/default board</td><td>Combine/profile + age + college encoding.</td></tr>
+<tr><td>Position profile-only raw APEX</td><td>Top challenger</td><td>Worth tracking, but not fully promoted because worst-window behavior remains too weak.</td></tr>
+<tr><td>NCAA production features</td><td class="bad">Experimental</td><td>Available for ablations, not headline.</td></tr>
 <tr><td>APEX+ 3.5x</td><td class="bad">Experimental / not promoted</td><td>Must pass rolling validation gates before becoming headline.</td></tr>
-<tr><td>APEX+ factor sweep</td><td>Running in reports</td><td>Promote only if mean, median, win rate, and worst-window gates pass.</td></tr>
 </tbody>
 </table>
 
 <div class="note">
-  <b>Current command:</b> <code>python src/sweep_apex_factor.py --first-test-year 2011 --last-test-year 2021 --end-year 2021</code>
+  <b>Current public board command:</b> <code>python src/improve.py --feature-set profile --end-year 2026</code><br>
+  <b>Current validation command:</b> <code>python src/backtest.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --feature-set profile</code>
 </div>
 
-<p><a href="VALIDATION.md">Read validation guide</a> · <a href="model.html">How APEX works</a></p>
+<p><a href="ablation.html">Feature ablation results</a> · <a href="VALIDATION.md">Read validation guide</a> · <a href="model.html">How APEX works</a></p>
 </div>
 </body>
 </html>

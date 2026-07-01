@@ -121,4 +121,6 @@ jobs:
             data/apex_board.csv
             index.html
             docs/index.html
+            docs/validation.html
+            docs/ablation.html
           if-no-files-found: warn

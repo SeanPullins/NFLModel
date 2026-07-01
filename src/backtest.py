@@ -255,8 +255,9 @@ def main() -> None:
         type=float,
         default=0.4,
         help="Cap per-position residual shrinkage search at this value (0-1). "
-        "Default 1.0 matches historical behavior; lower values (e.g. 0.5) reduce "
-        "the risk of the shrink tuner overfitting to a thin 2-year validation slice.",
+        "Default 0.4 is the validated setting (see docs/VALIDATION.md); pass 1.0 "
+        "to reproduce the old uncapped behavior, which overfits a thin 2-year "
+        "validation slice and fails the model's own promotion gate.",
     )
     args = parser.parse_args()
 

@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - ".github/workflows/run-backtests.yml"
+      - "src/pipeline.py"
       - "src/download_source_data.py"
       - "src/backtest.py"
       - "src/position_models.py"

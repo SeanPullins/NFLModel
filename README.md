@@ -12,6 +12,7 @@ The live v1.2.1 board reports **APEX+ Spearman ρ 0.697** on the 2012-14 officia
 - **Rolling backtests** — `src/backtest.py` now reports raw APEX and APEX+ versus pick-only/market baselines.
 - **APEX+ validation artifact** — committed CSV/JSON summaries show average and median lift across rolling windows.
 - **Public validation page** — `docs/validation.html` shows the rolling-window scoreboard and links to downloadable CSV/JSON.
+- **Experiment harness** — `src/experiment_feature_sets.py` tests whether adding post-draft interaction features improves the residual before promoting the change.
 - **Model card** — assumptions, target definition, leakage controls, and known limitations are documented in `docs/MODEL_CARD.md`.
 
 ## Live dashboard
@@ -50,11 +51,12 @@ Useful public pages:
 
 ```text
 src/
-  pipeline.py     shared loading, feature, baseline, residual, and metric utilities
-  improve.py      v1.2 train + original 2012-14 holdout evaluation
-  backtest.py     rolling out-of-time validation, including APEX+
-  build_site.py   static dashboard builder
-  template.html   dashboard template
+  pipeline.py                  shared loading, feature, baseline, residual, and metric utilities
+  improve.py                   v1.2 train + original 2012-14 holdout evaluation
+  backtest.py                  rolling out-of-time validation, including APEX+
+  experiment_feature_sets.py   compares profile-only vs postdraft-interaction residual features
+  build_site.py                static dashboard builder
+  template.html                dashboard template
 
 data/
   apex_board.csv  generated board used by dashboard
@@ -73,7 +75,7 @@ models/
   generated LightGBM/isotonic artifacts after running src/improve.py
 
 reports/
-  generated holdout and rolling backtest outputs
+  generated holdout, rolling backtest, and experiment outputs
 ```
 
 ## Raw data setup
@@ -131,6 +133,23 @@ delta_plus_vs_pick_spearman_drafted
 ```
 
 Positive means APEX+ ranked drafted players better than the pick-only market baseline for that test year.
+
+## Candidate feature experiment
+
+Before changing the production model, compare the current profile-only residual against a post-draft interaction residual that also includes `logpick`:
+
+```bash
+python src/experiment_feature_sets.py --first-test-year 2011 --last-test-year 2016 --apex-plus-factor 3.5
+```
+
+This writes:
+
+```text
+reports/feature_set_experiment_summary.csv
+reports/feature_set_experiment_report.json
+```
+
+Promote the post-draft interaction feature set only if it improves average and median lift without lowering the window win rate.
 
 ## Roadmap
 

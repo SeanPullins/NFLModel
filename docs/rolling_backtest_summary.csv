@@ -1,0 +1,5 @@
+validation_window,market_spearman_drafted,apex_raw_spearman_drafted,apex_plus_spearman_drafted,delta_raw_vs_market_spearman_drafted,delta_plus_vs_market_spearman_drafted,delta_plus_vs_raw_spearman_drafted,apex_plus_factor,notes
+2008-2011,0.585,0.625,0.689,0.040,0.104,0.064,3.5,published validation window from docs/model.html
+2012-2014,0.615,0.658,0.697,0.043,0.082,0.039,3.5,official holdout window from docs/model.html
+2015-2017,0.596,0.637,0.674,0.041,0.078,0.037,3.5,published validation window from docs/model.html
+2018-2020,0.601,0.641,0.670,0.040,0.069,0.029,3.5,published validation window from docs/model.html

@@ -2,24 +2,49 @@
 
 ## Current honest status
 
-The regenerated public-source run showed that the old **APEX+ 3.5×** headline should not be promoted yet. Raw APEX showed a small edge over draft slot on the regenerated 2011-2016 run, while 3.5× amplification hurt performance. The next validation run now fixes the hidden year cap and tests 2011-2021 with `--end-year 2021`.
+The public/default model is now **profile-only raw APEX**:
+
+```text
+draft market baseline + combine/profile features + age + college encoding
+```
+
+The old **APEX+ 3.5x** headline is not promoted. NCAA production features are also not promoted into the public board because ablation testing did not show a strong enough improvement over profile-only models.
 
 Current claim:
 
-> Raw APEX is the honest headline model until an APEX+ residual factor passes promotion gates.
+> APEX finds a small, repeatable edge over draft slot. The public board uses profile-only raw APEX. APEX+ amplification and NCAA production remain experimental.
 
 Avoid claiming:
 
-> APEX+ 3.5× is proven to beat the market.
+> APEX+ 3.5x is proven to beat the market.
 
-## What changed
+Avoid claiming:
 
-The old scripts silently loaded only through 2016 because `load_dataset()` defaulted to `end_year=2016`. The backtest scripts now expose `--end-year`, and the GitHub Action now runs:
+> NCAA box-score production improves the headline model.
+
+## Model roles
+
+| Component | Status | Use |
+|---|---|---|
+| Global profile-only raw APEX | Public/default board | Main score |
+| Position profile-only raw APEX | Top challenger | Track in reports |
+| NCAA production features | Experimental | Ablation only |
+| APEX+ residual amplification | Experimental | Factor sweep only |
+
+## Current workflow commands
+
+The workflow builds a broad board through 2026 but validates mature outcome windows through 2021:
 
 ```bash
-python src/backtest.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --apex-plus-factor 3.5
+python src/download_source_data.py
+python src/improve.py --feature-set profile --end-year 2026
+python src/build_site.py
+python src/backtest.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --feature-set profile --apex-plus-factor 3.5
 python src/sweep_apex_factor.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --factors "0,0.25,0.5,0.75,1,1.25,1.5,1.75,2,2.25,2.5,2.75,3,3.25,3.5"
-python src/position_models.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --apex-plus-factor 3.5
+python src/position_models.py --first-test-year 2011 --last-test-year 2021 --end-year 2021 --feature-set profile --apex-plus-factor 3.5
+python src/ablation_backtest.py --first-test-year 2011 --last-test-year 2021 --end-year 2021
+python src/validation_gates.py reports/rolling_backtest_summary.csv --delta-col delta_raw_vs_pick_spearman_drafted --out reports/rolling_validation_gates.json
+python src/validation_gates.py reports/position_model_backtest_summary.csv --delta-col delta_raw_vs_pick_spearman_drafted --out reports/position_model_validation_gates.json
 ```
 
 ## Main outputs
@@ -33,8 +58,14 @@ reports/apex_factor_sweep_by_year.csv
 reports/apex_factor_sweep_report.json
 reports/position_model_backtest_summary.csv
 reports/position_model_backtest_report.json
+reports/feature_ablation_summary.csv
+reports/feature_ablation_by_year.csv
+reports/feature_ablation_report.json
 reports/rolling_validation_gates.json
 reports/position_model_validation_gates.json
+data/apex_board.csv
+index.html
+docs/index.html
 ```
 
 ## Main metrics
@@ -51,6 +82,12 @@ For an APEX+ factor:
 delta_plus_vs_pick_spearman_drafted
 ```
 
+For feature ablations:
+
+```text
+delta_candidate_vs_pick_spearman_drafted
+```
+
 Interpretation:
 
 | Value | Meaning |
@@ -64,7 +101,7 @@ Interpretation:
 APEX+ uses:
 
 ```text
-APEX+ = market + factor × (raw_apex - market)
+APEX+ = market + factor x (raw_apex - market)
 ```
 
 Factor meanings:
@@ -75,7 +112,17 @@ Factor meanings:
 | 1.0 | raw APEX |
 | >1.0 | residual amplification |
 
-A factor is promoted only if it passes validation gates. If no factor passes, the public headline remains raw APEX.
+A factor is promoted only if it passes validation gates and improves on raw APEX. If no factor passes, the public headline remains raw APEX.
+
+## Feature ablation rule
+
+A production feature family should not be promoted unless it beats profile-only on:
+
+1. average lift
+2. median lift
+3. win rate
+4. worst-window behavior
+5. practical metrics such as precision@32 or precision@64 when available
 
 ## Promotion gates
 
@@ -103,16 +150,15 @@ For any player, check:
 - pick or expected pick
 - model surplus
 - whether that position has shown historical lift
-- whether the score is driven by athleticism only
-- whether the model has production data for that player
+- whether the score is driven by athleticism/profile data only
 - whether the player belongs to a high-volatility position like QB
 
 ## Recommended wording
 
 Use:
 
-> Raw APEX is being validated as a residual-over-market draft model. APEX+ amplification is experimental and must pass rolling-window promotion gates before it becomes the headline model.
+> Raw profile-only APEX is the public residual-over-market draft model. APEX+ amplification and NCAA production are experimental and must pass rolling-window promotion gates before becoming headline inputs.
 
 Do not use:
 
-> APEX+ 3.5× is the proven best model.
+> APEX+ 3.5x is the proven best model.

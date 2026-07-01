@@ -9,3 +9,10 @@ venv/
 .DS_Store
 .vscode/
 .idea/
+
+# Generated raw/enriched data (rebuilt by src/download_source_data.py + src/build_features.py)
+data/draft_data.csv
+data/combine_data_pfr_with_stats.csv
+data/model_features.csv
+data/source_phcs_nfl_data.csv
+data/source_array_combine_pro_day.csv

@@ -22,11 +22,19 @@ python src/download_source_data.py
   - Draft-pick history reference.
   - Not currently used for model outcomes.
 
+- `JackLich10/nfl-draft-data`
+  - ESPN pre-draft prospect boards from 2004-2021: overall rank, position rank, and scouting grade.
+  - Downloaded by `src/build_consensus_board.py` into `data/consensus/consensus_board.csv`.
+  - Used as the pre-draft market proxy (`consensus_rank`) and pre-draft context features (`espn_grade`, `espn_pos_rank`).
+  - These are pre-draft evaluations published before draft night, so they are legal inputs for true pre-draft forecasting.
+
 ## Generated local files
 
 ```text
 data/draft_data.csv
 data/combine_data_pfr_with_stats.csv
+data/consensus/consensus_board.csv
+data/model_features.csv
 ```
 
 These are generated artifacts and do not need to be committed for the GitHub Action to run.

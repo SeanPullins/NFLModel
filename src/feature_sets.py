@@ -6,7 +6,7 @@ ablations, but is not part of the default headline model.
 """
 from __future__ import annotations
 
-from pipeline import ATHLETIC_FEATURES, COLLEGE_PRODUCTION_FEATURES
+from pipeline import ATHLETIC_FEATURES, COLLEGE_PRODUCTION_FEATURES, CONSENSUS_MARKET_FEATURES
 
 OFFENSIVE_PRODUCTION_FEATURES = [
     "college_games",
@@ -38,6 +38,10 @@ FEATURE_SETS: dict[str, list[str]] = {
     "production_only": COLLEGE_PRODUCTION_FEATURES,
     "offensive_production_only": OFFENSIVE_PRODUCTION_FEATURES,
     "defensive_production_only": DEFENSIVE_PRODUCTION_FEATURES,
+    # Post-draft-only experiment: consensus_vs_pick compares the pre-draft
+    # consensus board to the actual pick, so this set must never be used for
+    # pre-draft forecasting.
+    "profile_plus_consensus": ATHLETIC_FEATURES + CONSENSUS_MARKET_FEATURES,
 }
 
 DEFAULT_FEATURE_SET = "profile"

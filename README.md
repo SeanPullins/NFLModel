@@ -45,6 +45,29 @@ profile_plus_production         profile + all NCAA production features
 production_only                 all NCAA production features only
 offensive_production_only       NCAA offensive production only
 defensive_production_only       NCAA defensive production only
+profile_plus_consensus          profile + ESPN consensus board features (post-draft experiments only)
+```
+
+## Pre-draft consensus board
+
+`src/build_consensus_board.py` downloads ESPN pre-draft prospect boards
+(2004-2021 overall rank, position rank, and scouting grade) from
+`JackLich10/nfl-draft-data` and writes `data/consensus/consensus_board.csv`.
+This unlocks two things:
+
+1. **True pre-draft forecasting** — `src/predraft_backtest.py` fits its market
+   baseline on ESPN consensus rank instead of the actual pick, so the model can
+   be tested as a real before-draft-night forecaster.
+2. **Board-vs-pick features** — the `profile_plus_consensus` feature set adds
+   `log_consensus_rank`, `espn_grade`, and `consensus_vs_pick` (how far a
+   player fell or rose relative to consensus) to the post-draft residual model.
+   `consensus_vs_pick` uses the actual pick and must never be used pre-draft.
+
+```bash
+python src/build_consensus_board.py
+python src/build_features.py --end-year 2021
+python src/predraft_backtest.py --first-test-year 2011 --last-test-year 2021 --end-year 2021
+python src/backtest.py --feature-set profile_plus_consensus --first-test-year 2011 --last-test-year 2021 --end-year 2021 --out-dir reports/consensus_experiment
 ```
 
 ## Production features available for experiments
@@ -136,6 +159,7 @@ Current source inputs:
 
 - `phcs971/nfl-draft-dataset` — combine, draft, career AV, and NCAA production data through 2024.
 - `array-carpenter/nfl-draft-data` — combine/pro-day measurements through 2026.
+- `JackLich10/nfl-draft-data` — ESPN pre-draft boards 2004-2021 (rank + grade), via `src/build_consensus_board.py`.
 
 ## Run from GitHub Actions
 
@@ -234,7 +258,7 @@ A single higher headline Spearman is not enough. If no APEX+ factor passes gates
 
 Highest-impact next data additions:
 
-1. consensus-board / expected-pick history for true pre-draft forecasting
+1. ~~consensus-board / expected-pick history for true pre-draft forecasting~~ **done** — ESPN boards 2004-2021 via `src/build_consensus_board.py`; extend with mock-draft aggregates (e.g. Grinding the Mocks) when a public archive exists
 2. pressure-to-sack and age-adjusted QB efficiency features
 3. route-level WR/TE features such as YPRR and target share
 4. EDGE pressure rate and pass-rush win rate

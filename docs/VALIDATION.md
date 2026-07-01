@@ -30,6 +30,22 @@ Avoid claiming:
 | Position profile-only raw APEX | Top challenger | Track in reports |
 | NCAA production features | Experimental | Ablation only |
 | APEX+ residual amplification | Experimental | Factor sweep only |
+| Pre-draft APEX (ESPN consensus baseline) | Measured, no edge | `predraft_backtest.py` report only |
+| Consensus board-vs-pick features | Experimental | `profile_plus_consensus` feature set |
+
+## Pre-draft validation result (2011-2021)
+
+With ESPN pre-draft boards (2004-2021) as the market proxy:
+
+| Forecaster | Mean Spearman (drafted) |
+|---|---:|
+| Actual draft slot | ~0.59 |
+| ESPN consensus rank | ~0.52 |
+| Pre-draft APEX raw | ~0.52 (delta vs consensus: mean -0.004, median +0.002, win rate 6/11) |
+| Pre-draft APEX+ 3.5x | loses all 11 years — never use amplification pre-draft |
+
+Honest claim: the model matches public consensus pre-draft but has not beaten
+it, and nobody public beats the actual draft order on average.
 
 ## Current workflow commands
 

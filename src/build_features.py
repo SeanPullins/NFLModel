@@ -105,7 +105,12 @@ def merge_optional_features(base: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
         report["files"][spec.name] = meta
         if optional is None or not meta.get("usable"):
             continue
-        feature_cols = meta["features_present"]
+        # Skip columns the base table already carries (e.g. consensus columns
+        # merged by pipeline.load_dataset) so the merge never creates _x/_y
+        # duplicates that break downstream feature lookups.
+        feature_cols = [c for c in meta["features_present"] if c not in out.columns]
+        if not feature_cols:
+            continue
         before_cols = set(out.columns)
         out = out.merge(optional[["key", *feature_cols]], on="key", how="left")
         added = [c for c in out.columns if c not in before_cols]
@@ -132,6 +137,8 @@ def write_templates(template_dir: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-dir", type=str, default=None)
+    parser.add_argument("--start-year", type=int, default=2000)
+    parser.add_argument("--end-year", type=int, default=2026)
     parser.add_argument("--out", type=str, default=str(ENRICHED_FEATURE_FILE))
     parser.add_argument("--report", type=str, default=str(FEATURE_COVERAGE_REPORT))
     parser.add_argument("--write-templates", action="store_true")
@@ -140,7 +147,7 @@ def main() -> None:
     if args.write_templates:
         write_templates(ROOT / "data")
 
-    base = load_dataset(data_dir=args.data_dir)
+    base = load_dataset(data_dir=args.data_dir, start_year=args.start_year, end_year=args.end_year)
     enriched, report = merge_optional_features(base)
 
     out_path = Path(args.out)

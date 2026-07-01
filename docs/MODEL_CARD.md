@@ -105,8 +105,12 @@ The most useful model outputs are likely:
 1. **Production data is missing.**  
    The current model is too reliant on athletic/profile data. Position-specific production should be the next major feature family.
 
-2. **Actual draft pick is unavailable pre-draft.**  
-   A true pre-draft model needs consensus rank or expected draft position.
+2. **Pre-draft forecasting is now measurable but not yet an edge.**  
+   ESPN pre-draft boards (2004-2021, via `src/build_consensus_board.py`) give a
+   true pre-draft market baseline. Measured 2011-2021: pre-draft APEX matches
+   the public consensus (mean delta -0.004 Spearman) but does not beat it, and
+   the actual draft slot beats both by ~0.07. Beating front offices before
+   draft night remains unproven for this model.
 
 3. **QB needs a separate model.**  
    Generic combine/profile features are not enough for quarterback forecasting.
@@ -124,7 +128,8 @@ The most useful model outputs are likely:
 
 APEX v2 should add:
 
-- consensus big board / expected draft slot
+- ~~consensus big board / expected draft slot~~ (added: ESPN boards 2004-2021)
+- mock-draft aggregate expected pick (e.g. Grinding the Mocks archive) to extend consensus coverage past 2021
 - college production metrics
 - position-specific submodels
 - uncertainty intervals

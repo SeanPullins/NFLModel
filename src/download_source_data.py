@@ -20,6 +20,8 @@ from __future__ import annotations
 import argparse
 import io
 import re
+import subprocess
+import time
 import urllib.request
 from pathlib import Path
 
@@ -35,10 +37,34 @@ NFLVERSE_DRAFT_PICKS_URL = "https://raw.githubusercontent.com/nflverse/nflverse-
 YEAR_RE = re.compile(r"^\d{4}[;,]")
 
 
-def download_text(url: str) -> str:
+def _download_with_urllib(url: str) -> str:
     req = urllib.request.Request(url, headers={"User-Agent": "APEX-NFLModel/1.0"})
-    with urllib.request.urlopen(req, timeout=90) as response:
+    with urllib.request.urlopen(req, timeout=120) as response:
         return response.read().decode("utf-8", errors="replace")
+
+
+def _download_with_curl(url: str) -> str:
+    result = subprocess.run(
+        ["curl", "-sS", "--fail", "--retry", "3", "--max-time", "180", url],
+        capture_output=True,
+        check=True,
+    )
+    return result.stdout.decode("utf-8", errors="replace")
+
+
+def download_text(url: str, retries: int = 4) -> str:
+    last_exc: Exception | None = None
+    for attempt in range(retries + 1):
+        for fetch in (_download_with_curl, _download_with_urllib):
+            try:
+                return fetch(url)
+            except Exception as exc:
+                last_exc = exc
+        if attempt < retries:
+            wait = 2 ** (attempt + 1)
+            print(f"Download failed ({last_exc}); retrying in {wait}s")
+            time.sleep(wait)
+    raise RuntimeError(f"Failed to download {url} after {retries + 1} attempts") from last_exc
 
 
 def repair_year_rows(text: str, delimiter: str) -> str:

@@ -98,6 +98,8 @@ PRODUCTION_FEATURES_BY_GROUP: dict[str, tuple[str, ...]] = {
 
 CONSENSUS_FEATURES: tuple[str, ...] = (
     "consensus_rank",
+    "espn_grade",
+    "espn_pos_rank",
     "expected_pick",
     "mock_avg_pick",
     "mock_pick_std",

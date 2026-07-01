@@ -1,6 +1,7 @@
 from pathlib import Path
 import json
 
+import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,6 +27,12 @@ BASE_COLS = [
     "apex_conservative_025",
     "apex_conservative_075",
     "model_status",
+    "implied_pick",
+    "pick_delta",
+    "p_star",
+    "p_starter",
+    "p_contrib",
+    "p_bust",
 ]
 
 
@@ -62,6 +69,17 @@ if "model_status" not in df.columns:
     df["model_status"] = "apex_conservative_050_candidate"
 
 for col in [
+    "implied_pick",
+    "pick_delta",
+    "p_star",
+    "p_starter",
+    "p_contrib",
+    "p_bust",
+]:
+    if col not in df.columns:
+        df[col] = np.nan
+
+for col in [
     "CarAV",
     "y",
     "apex_score",
@@ -71,6 +89,12 @@ for col in [
     "raw_edge",
     "apex_conservative_025",
     "apex_conservative_075",
+    "implied_pick",
+    "pick_delta",
+    "p_star",
+    "p_starter",
+    "p_contrib",
+    "p_bust",
 ]:
     df[col] = pd.to_numeric(df[col], errors="coerce").round(4)
 

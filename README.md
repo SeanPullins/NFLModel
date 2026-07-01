@@ -174,6 +174,23 @@ Current source inputs:
 - `JackLich10/nfl-draft-data` — ESPN pre-draft boards 2004-2021 (rank + grade), via `src/build_consensus_board.py`.
 - `nflverse/nflverse-data` draft_picks (fallback: `dynastyprocess/data`) — actual draft results for classes newer than phcs971 (2025+), so freshly drafted classes show real picks instead of placeholder "prospect" rows.
 
+## Projections: fair slot and tier odds
+
+Every board row now carries draft-slot-currency projections:
+
+- `implied_pick` ("fair slot") — invert the pick-to-outcome curve: the draft
+  slot whose historical value matches the player's grade.
+- `pick_delta` — actual pick minus fair slot. Positive = value pick (slid past
+  his grade), negative = reach.
+- `p_star` / `p_starter` / `p_contrib` / `p_bust` — historical base rates of
+  career tiers (>=85th / 70-85th / 45-70th / <45th within-class percentile)
+  among past drafted players in the same grade bucket. In-sample calibration
+  on mature classes; treat as base rates, not player-specific certainty.
+
+For the 2025/2026 classes (real picks, no outcomes yet) these are the
+projections; the same columns will populate automatically for 2027+ once
+picks exist, and their grades sharpen as combine/consensus data arrives.
+
 Accuracy rules for recent classes:
 
 - Classes with no recorded career value have their outcome (`y`) masked — the

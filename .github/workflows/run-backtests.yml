@@ -48,7 +48,7 @@ jobs:
         run: |
           python src/improve.py \
             --feature-set profile \
-            --end-year 2021
+            --end-year 2026
           python src/build_site.py
 
       - name: Run profile-only raw APEX backtest

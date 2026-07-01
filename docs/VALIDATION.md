@@ -47,6 +47,21 @@ With ESPN pre-draft boards (2004-2021) as the market proxy:
 Honest claim: the model matches public consensus pre-draft but has not beaten
 it, and nobody public beats the actual draft order on average.
 
+## Consensus board-vs-pick experiment (post-draft, 2011-2021)
+
+`profile_plus_consensus` (profile + consensus rank + ESPN grade +
+board-vs-pick disagreement):
+
+| Metric | profile (default) | profile_plus_consensus |
+|---|---:|---:|
+| Mean lift vs pick | +0.0117 | +0.0076 |
+| Median lift | +0.0138 | +0.0160 |
+| Win rate | 8/11 | 8/11 |
+| Worst year | -0.0328 | -0.0583 |
+
+Verdict: better median, worse mean and worst-window. Fails promotion rules;
+stays experimental.
+
 ## Current workflow commands
 
 The workflow builds a broad board through 2026 but validates mature outcome windows through 2021:

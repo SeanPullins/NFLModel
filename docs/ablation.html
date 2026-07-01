@@ -36,8 +36,19 @@ body{margin:0;background:var(--bg);color:var(--ink);line-height:1.55}.wrap{max-w
 </tbody>
 </table>
 
+<h2 style="margin-top:30px">Consensus board-vs-pick experiment</h2>
+<p>With ESPN pre-draft boards wired in (2004-2021), the <code>profile_plus_consensus</code> feature set adds consensus rank, ESPN grade, and the board-vs-pick disagreement (<code>consensus_vs_pick</code>) to the post-draft residual model.</p>
+<table>
+<thead><tr><th>Feature set</th><th class="num">Mean lift</th><th class="num">Median lift</th><th class="num">Win rate</th><th class="num">Worst year</th><th>Decision</th></tr></thead>
+<tbody>
+<tr><td>Global profile only (default)</td><td class="num good">+0.0117</td><td class="num good">+0.0138</td><td class="num good">8 / 11</td><td class="num bad">-0.0328</td><td>Default public board</td></tr>
+<tr><td>Global profile + consensus</td><td class="num good">+0.0076</td><td class="num good">+0.0160</td><td class="num good">8 / 11</td><td class="num bad">-0.0583</td><td class="bad">Not promoted: better median, worse mean and worst year</td></tr>
+</tbody>
+</table>
+<p>The "player fell relative to consensus" signal helps typical years but amplifies the bad ones (2011 again). It stays experimental until it wins on all four gate metrics.</p>
+
 <div class="note">
-  <b>Decision:</b> public board = <code>profile</code> raw APEX. Production and APEX+ stay experimental. Position-specific profile-only is the top challenger but still fails the strict worst-window gate.
+  <b>Decision:</b> public board = <code>profile</code> raw APEX. Production, consensus features, and APEX+ stay experimental. Position-specific profile-only is the top challenger but still fails the strict worst-window gate.
 </div>
 
 <p><a href="validation.html">Validation status</a> · <a href="FEATURES.md">Feature guide</a></p>

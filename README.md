@@ -63,6 +63,18 @@ This unlocks two things:
    player fell or rose relative to consensus) to the post-draft residual model.
    `consensus_vs_pick` uses the actual pick and must never be used pre-draft.
 
+Measured results (2011-2021 rolling backtest, drafted players):
+
+| Model | Mean lift vs pick | Median | Win rate | Worst year | Verdict |
+|---|---:|---:|---:|---:|---|
+| Pre-draft APEX vs ESPN consensus | -0.004 | +0.002 | 6/11 | -0.046 | Matches consensus, no edge yet |
+| Post-draft profile + consensus vs pick | +0.008 | +0.016 | 8/11 | -0.058 | Not promoted (default profile: +0.012 mean, -0.033 worst) |
+
+Actual draft slot beats public consensus by ~0.07 Spearman: front offices'
+private information (medicals, interviews, workouts) is real. The honest path
+to "beating the front office" is the post-draft residual edge plus late-round
+surplus flags, not pretending to out-rank the whole first round pre-draft.
+
 ```bash
 python src/build_consensus_board.py
 python src/build_features.py --end-year 2021

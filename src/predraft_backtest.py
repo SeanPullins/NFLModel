@@ -25,7 +25,7 @@ from sklearn.isotonic import IsotonicRegression
 
 from backtest import DEFAULT_APEX_PLUS_FACTOR, aggregate_report, flatten_metrics, score_apex_plus
 from build_features import merge_optional_features
-from feature_registry import CONSENSUS_FEATURES, ENRICHED_FEATURE_FILE, consensus_market_features
+from feature_registry import ENRICHED_FEATURE_FILE, consensus_market_features
 from pipeline import (
     FEATS_A,
     ROOT,
@@ -33,7 +33,6 @@ from pipeline import (
     make_resid,
     metric_row,
     prepare_fold,
-    safe_spearman,
 )
 
 PRE_DRAFT_MARKET_CANDIDATES = ["expected_pick", "consensus_rank", "mock_avg_pick"]
@@ -109,8 +108,7 @@ def evaluate_test_year(
     pre_market_for_shrink, _ = make_predraft_market_baseline(train_for_shrink)
     resid_for_shrink, _ = make_resid(train_for_shrink, pre_market_for_shrink, feats=feats)
 
-    # Reuse the existing position shrinkage tuner, but with the pre-draft market baseline.
-    from pipeline import tune_position_shrinkage, score_apex
+    from pipeline import score_apex, tune_position_shrinkage
 
     shrink = tune_position_shrinkage(valid, pre_market_for_shrink, resid_for_shrink)
 
@@ -145,6 +143,7 @@ def evaluate_test_year(
     row.update(flatten_metrics("predraft_apex_plus", metric_row(scored, "predraft_apex_plus")))
     row["delta_plus_vs_market_spearman_drafted"] = row["predraft_apex_plus_spearman_drafted"] - row["predraft_market_spearman_drafted"]
     row["delta_raw_vs_market_spearman_drafted"] = row["predraft_apex_raw_spearman_drafted"] - row["predraft_market_spearman_drafted"]
+    row["delta_plus_vs_raw_spearman_drafted"] = row["predraft_apex_plus_spearman_drafted"] - row["predraft_apex_raw_spearman_drafted"]
     return row
 
 
@@ -173,13 +172,14 @@ def run_backtest(
         )
     summary = pd.DataFrame(rows)
 
+    report_input = summary.rename(
+        columns={
+            "delta_plus_vs_market_spearman_drafted": "delta_plus_vs_pick_spearman_drafted",
+            "delta_raw_vs_market_spearman_drafted": "delta_raw_vs_pick_spearman_drafted",
+        }
+    )
     report = aggregate_report(
-        summary.rename(
-            columns={
-                "delta_plus_vs_market_spearman_drafted": "delta_plus_vs_pick_spearman_drafted",
-                "delta_raw_vs_market_spearman_drafted": "delta_raw_vs_pick_spearman_drafted",
-            }
-        ),
+        report_input,
         first_test_year,
         last_test_year,
         validation_years,

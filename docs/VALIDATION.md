@@ -97,19 +97,25 @@ weak college pedigree 27%/16%, poor agility 23%/13%. See
 
 ## PFF QB features: first measurement (2026-07, partial seasons)
 
-With PFF passing-page exports for seasons 2014/2015/2017/2020/2022/2025 (6 of
-12) mapped into QB features and the recent-window coverage rule active:
+With PFF passing-page exports for 11 of 12 seasons (2014-2022, 2024, 2025;
+only 2023 missing) mapped into QB features and the recent-window coverage
+rule active:
 
 | Challenger config | Mean lift | Wins | Worst |
 |---|---:|---:|---:|
 | position profile-only | +0.0131 | 9/11 | -0.0515 |
 | + ESPN college QBR | **+0.0139** | **10/11** | -0.0515 |
-| + QBR + partial PFF | +0.0132 | 9/11 | -0.0515 |
+| + QBR + PFF (11 seasons) | +0.0132 | 9/11 | -0.0515 |
 
-With half the seasons missing, PFF career aggregates are noisy and slightly
-hurt 2019-2021 relative to QBR-only. Decision: keep the intake, exclude PFF
-from the promoted challenger config until the remaining passing seasons
-(2016, 2018, 2019, 2021, 2023, 2024) arrive; re-measure then.
+Identical verdict at 6 and 11 seasons, and the reason is structural: mature
+test years end at 2021, so the backtest can only ever see PFF for the
+2015-2020 QB classes (~13 drafted QBs per year). In that thin window PFF
+duplicates the QBR signal and adds noise (2020 flips negative, 2021 -0.003).
+Most of PFF's value sits on the 2022-2026 classes, whose outcomes are still
+censored - it cannot be validated yet, only shipped as clearly-labeled
+projection input. Decision: promoted challenger stays QBR-only; PFF QB
+features remain in the data layer and can inform experimental projections
+for new classes. Re-measure when the 2022 class matures (~2027).
 
 ## Season-trajectory features: investigated, not implemented (2026-07)
 

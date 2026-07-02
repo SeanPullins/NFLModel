@@ -135,6 +135,23 @@ One year up, one down - far too thin to promote or reject. Receiving seasons
 2014-2016 would add three more mature test years (classes 2015-2018) and
 settle it. Until then receiving stays projection input for 2022+ classes.
 
+## PFF receiving features: measured, not promoted (2026-07)
+
+With receiving concept+depth tables for seasons 2014, 2017, 2019-2025 mapped
+into WR/TE/RB features (550 WR / 218 TE / 149 RB rows, classes 2015-2026) and
+per-position coverage gating fixed so the features genuinely activate
+(15-21 extras live in the SKILL family from the 2017 test year onward):
+
+| Challenger config | Mean lift | Wins | Worst |
+|---|---:|---:|---:|
+| + ESPN college QBR (promoted) | **+0.0139** | **10/11** | -0.0515 |
+| + QBR + PFF receiving | +0.0133 | 9/11 | -0.0515 |
+
+Receiving-active years: 2018 improves (+0.0021) but 2017/2019/2020/2021 all
+slip (-0.001 to -0.004) and 2020 flips negative. On mature classes the draft
+market already prices YPRR-style production; the features stay in the
+projection layer for new classes and out of the promoted config.
+
 ## Season-trajectory features: investigated, not implemented (2026-07)
 
 Public season-by-season college stats (JackLich10 `college_statistics.csv` and

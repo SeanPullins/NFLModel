@@ -207,6 +207,12 @@ red flags.
   are players with dropbacks) - real RB/WR features need the position-page
   Rushing report (YCO/attempt, elusive rating) and Receiving report (YPRR,
   contested catch).
+  **Export gotcha**: PFF's CSV export saves whatever table is currently
+  rendered, not the tab the filename implies - a "Defense" export can contain
+  the passing table. The intake dedupes identical files by content and the
+  season is verified from player names, but always switch the on-screen
+  report before exporting. Team-level exports (no `player` column, e.g.
+  OL pass-blocking efficiency) cannot become player features.
 - Position models measure production-feature coverage over the last 5 training
   years, so licensed sources that only exist for recent classes can activate
   without needing 20 years of history.

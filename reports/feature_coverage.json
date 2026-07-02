@@ -3,7 +3,7 @@
     "qb_production": {
       "path": "/home/user/NFLModel/data/production/qb_production.csv",
       "exists": true,
-      "rows": 389,
+      "rows": 399,
       "features_present": [
         "qb_cpoe",
         "qb_adj_completion_pct",
@@ -172,36 +172,36 @@
       "non_null": 0
     },
     "qb_adj_completion_pct": {
-      "coverage": 0.02177438035672921,
-      "non_null": 188
+      "coverage": 0.02235348621728052,
+      "non_null": 193
     },
     "qb_pressure_to_sack_rate": {
-      "coverage": 0.021311095668288163,
-      "non_null": 184
+      "coverage": 0.022121843873059995,
+      "non_null": 191
     },
     "qb_sack_rate": {
-      "coverage": 0.02177438035672921,
-      "non_null": 188
+      "coverage": 0.02235348621728052,
+      "non_null": 193
     },
     "qb_big_time_throw_rate": {
-      "coverage": 0.02177438035672921,
-      "non_null": 188
+      "coverage": 0.02235348621728052,
+      "non_null": 193
     },
     "qb_turnover_worthy_play_rate": {
-      "coverage": 0.02177438035672921,
-      "non_null": 188
+      "coverage": 0.02235348621728052,
+      "non_null": 193
     },
     "qb_pff_pass_grade": {
-      "coverage": 0.02177438035672921,
-      "non_null": 188
+      "coverage": 0.02235348621728052,
+      "non_null": 193
     },
     "qb_pff_pass_grade_final": {
-      "coverage": 0.02177438035672921,
-      "non_null": 188
+      "coverage": 0.021542738012508687,
+      "non_null": 186
     },
     "qb_pff_dropbacks": {
-      "coverage": 0.02177438035672921,
-      "non_null": 188
+      "coverage": 0.022700949733611305,
+      "non_null": 196
     },
     "qb_career_plays": {
       "coverage": 0.024785730831596017,

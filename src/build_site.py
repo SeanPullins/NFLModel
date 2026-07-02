@@ -33,6 +33,8 @@ BASE_COLS = [
     "p_starter",
     "p_contrib",
     "p_bust",
+    "apex_pff",
+    "pff_edge",
 ]
 
 
@@ -46,6 +48,14 @@ def first_existing(df: pd.DataFrame, candidates: list[str], fallback: float | st
 df = pd.read_csv(DATA_PATH)
 df["Pick"] = df["Pick"].where(df["Pick"] < 263)
 df["College"] = df["College"].fillna("Unknown")
+
+# Optional PFF-informed challenger scores (model outputs only; see
+# src/build_pff_scores.py). Merged by Year+Player when the file exists.
+PFF_SCORES_PATH = ROOT / "data" / "pff_scores.csv"
+if PFF_SCORES_PATH.exists():
+    pff = pd.read_csv(PFF_SCORES_PATH)[["Year", "Player", "apex_pff", "pff_edge"]]
+    df = df.merge(pff.drop_duplicates(["Year", "Player"]), on=["Year", "Player"], how="left")
+    print(f"merged PFF-informed scores for {int(df['apex_pff'].notna().sum())} rows")
 
 if "Rnd" not in df.columns:
     round_bins = [0, 32, 64, 100, 135, 176, 220, 262]
@@ -75,6 +85,8 @@ for col in [
     "p_starter",
     "p_contrib",
     "p_bust",
+    "apex_pff",
+    "pff_edge",
 ]:
     if col not in df.columns:
         df[col] = np.nan
@@ -95,6 +107,8 @@ for col in [
     "p_starter",
     "p_contrib",
     "p_bust",
+    "apex_pff",
+    "pff_edge",
 ]:
     df[col] = pd.to_numeric(df[col], errors="coerce").round(4)
 

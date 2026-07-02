@@ -33,6 +33,28 @@ Avoid claiming:
 | Pre-draft APEX (ESPN consensus baseline) | Measured, no edge | `predraft_backtest.py` report only |
 | Consensus board-vs-pick features | Experimental | `profile_plus_consensus` feature set |
 
+## Shrinkage stabilization: promoted (2026-07)
+
+The recurring 2011 worst-window failure was diagnosed as validation-fold
+shrinkage overfit (DB weight pushed to 0.9 on two good years before a -0.08
+test year). The tuner now requires a +0.02 validation margin over the default
+weight and caps weights at 0.8. Gated re-run, default global model 2011-2021:
+
+| Metric | Old tuner | Stabilized |
+|---|---:|---:|
+| Mean lift vs pick | +0.0117 | **+0.0142** |
+| Median | +0.0138 | **+0.0158** |
+| Worst year | -0.0328 | **-0.0228** |
+| Win years | 8/11 | **9/11** |
+
+All four gate metrics improve -> promoted as the default. The strict
+worst-window gate (-0.02) is still narrowly missed (-0.0228).
+
+Position-family challenger with the stabilized tuner: mean +0.0176, median
++0.0212, 10/11 wins, worst -0.0314 (2011-2021); on the early-window years
+it adds +0.0036 (2022) and +0.0218 (2023) - the edge persists into classes
+measured on first-contract-horizon outcomes.
+
 ## Published-board evaluation (reports/board_evaluation.json)
 
 Accuracy of what the site actually displays, on mature drafted classes

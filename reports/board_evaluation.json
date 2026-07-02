@@ -3,11 +3,11 @@
   "caveat": "board scores are fit on all data (partly in-sample); out-of-time lift lives in rolling_backtest_summary",
   "score_accuracy": {
     "apex_conservative_050": {
-      "spearman_vs_outcome": 0.606,
+      "spearman_vs_outcome": 0.6047,
       "n": 2563
     },
     "apex": {
-      "spearman_vs_outcome": 0.6196,
+      "spearman_vs_outcome": 0.618,
       "n": 2563
     },
     "apex_pff": {
@@ -19,7 +19,7 @@
       "n": 2563
     },
     "implied_pick": {
-      "spearman_vs_outcome": 0.6191,
+      "spearman_vs_outcome": 0.6172,
       "n": 2563
     },
     "actual_pick_baseline": {
@@ -29,82 +29,82 @@
   },
   "tier_calibration": [
     {
-      "p_star_bucket": "(0.0115, 0.0689]",
-      "n": 453,
-      "predicted_star": 0.044,
-      "actual_star": 0.044,
+      "p_star_bucket": "(0.011699999999999999, 0.0627]",
+      "n": 466,
+      "predicted_star": 0.043,
+      "actual_star": 0.043,
       "predicted_bust": 0.506,
-      "actual_bust": 0.499
+      "actual_bust": 0.498
     },
     {
-      "p_star_bucket": "(0.0689, 0.0786]",
-      "n": 191,
-      "predicted_star": 0.079,
-      "actual_star": 0.105,
-      "predicted_bust": 0.358,
-      "actual_bust": 0.304
+      "p_star_bucket": "(0.0627, 0.0824]",
+      "n": 231,
+      "predicted_star": 0.082,
+      "actual_star": 0.126,
+      "predicted_bust": 0.348,
+      "actual_bust": 0.294
     },
     {
-      "p_star_bucket": "(0.0786, 0.133]",
-      "n": 364,
-      "predicted_star": 0.121,
-      "actual_star": 0.143,
-      "predicted_bust": 0.277,
-      "actual_bust": 0.247
+      "p_star_bucket": "(0.0824, 0.144]",
+      "n": 322,
+      "predicted_star": 0.127,
+      "actual_star": 0.146,
+      "predicted_bust": 0.269,
+      "actual_bust": 0.236
     },
     {
-      "p_star_bucket": "(0.133, 0.176]",
-      "n": 348,
-      "predicted_star": 0.16,
-      "actual_star": 0.213,
-      "predicted_bust": 0.178,
-      "actual_bust": 0.149
+      "p_star_bucket": "(0.144, 0.177]",
+      "n": 341,
+      "predicted_star": 0.163,
+      "actual_star": 0.214,
+      "predicted_bust": 0.168,
+      "actual_bust": 0.144
     },
     {
-      "p_star_bucket": "(0.176, 0.275]",
-      "n": 332,
-      "predicted_star": 0.252,
-      "actual_star": 0.307,
-      "predicted_bust": 0.083,
-      "actual_bust": 0.066
+      "p_star_bucket": "(0.177, 0.289]",
+      "n": 338,
+      "predicted_star": 0.251,
+      "actual_star": 0.305,
+      "predicted_bust": 0.084,
+      "actual_bust": 0.065
     },
     {
-      "p_star_bucket": "(0.275, 0.393]",
-      "n": 355,
-      "predicted_star": 0.365,
-      "actual_star": 0.459,
-      "predicted_bust": 0.049,
-      "actual_bust": 0.028
+      "p_star_bucket": "(0.289, 0.401]",
+      "n": 345,
+      "predicted_star": 0.368,
+      "actual_star": 0.458,
+      "predicted_bust": 0.052,
+      "actual_bust": 0.032
     },
     {
-      "p_star_bucket": "(0.393, 0.62]",
-      "n": 328,
-      "predicted_star": 0.567,
-      "actual_star": 0.601,
+      "p_star_bucket": "(0.401, 0.618]",
+      "n": 330,
+      "predicted_star": 0.564,
+      "actual_star": 0.606,
       "predicted_bust": 0.007,
       "actual_bust": 0.003
     },
     {
-      "p_star_bucket": "(0.62, 0.804]",
-      "n": 192,
+      "p_star_bucket": "(0.618, 0.804]",
+      "n": 190,
       "predicted_star": 0.804,
-      "actual_star": 0.818,
+      "actual_star": 0.816,
       "predicted_bust": 0.0,
       "actual_bust": 0.0
     }
   ],
   "fair_slot_quality": {
     "steal_calls": {
-      "n": 655,
-      "beat_market_rate": 0.792
+      "n": 629,
+      "beat_market_rate": 0.785
     },
     "neutral": {
-      "n": 1596,
-      "beat_market_rate": 0.612
+      "n": 1637,
+      "beat_market_rate": 0.614
     },
     "reach_calls": {
-      "n": 312,
-      "beat_market_rate": 0.397
+      "n": 297,
+      "beat_market_rate": 0.407
     }
   },
   "integrity": {

@@ -1,14 +1,14 @@
 {
   "pass": false,
   "checks": {
-    "mean_lift": 0.011727272727272727,
-    "median_lift": 0.0138,
-    "win_rate": 0.7272727272727273,
-    "worst_window": -0.0328,
+    "mean_lift": 0.014154545454545454,
+    "median_lift": 0.0158,
+    "win_rate": 0.8181818181818182,
+    "worst_window": -0.0228,
     "n_windows": 11
   },
   "failures": [
-    "worst_window -0.0328 < -0.0200"
+    "worst_window -0.0228 < -0.0200"
   ],
   "gates": {
     "min_mean_lift": 0.0,

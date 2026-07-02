@@ -22,7 +22,7 @@
       <div class="subline">Where the draft market is most likely wrong: every player 2000-2026 graded against his slot, with steal flags, reach warnings, and bust risk from validated historical patterns. Not a scouting replacement - a disagreement detector.</div>
     </div>
     <div class="kpi-strip" aria-label="Model benchmarks">
-      <div class="kpi" title="Average Spearman rank-correlation improvement over draft slot alone across 2011-2021 out-of-time backtests"><b>+0.013</b><small>Avg lift vs draft slot</small></div>
+      <div class="kpi" title="Average Spearman rank-correlation improvement over draft slot alone across 2011-2021 out-of-time backtests"><b>+0.014</b><small>Avg lift vs draft slot</small></div>
       <div class="kpi" title="Years the model out-ranked draft slot across 11 yearly backtests"><b>9 / 11</b><small>Years beat the market</small></div>
       <div class="kpi"><b id="playersShown">0</b><small>Filtered players</small></div>
     </div>
@@ -35,7 +35,7 @@
       <div><b>Edge</b> - where the model disagrees with the NFL. <span class="pill good" style="padding:0 6px">+ green</span> = model likes him more than his pick (potential steal). <span class="pill bad" style="padding:0 6px">- red</span> = model thinks he was over-drafted (bust risk).</div>
       <div><b>Fair slot</b> - the draft position whose historical value matches the player's grade: "graded like pick #23". Compare with where he actually went to spot value picks and reaches.</div>
       <div><b>Actual</b> - for finished careers: where the player really ranked in his class, so you can check the model (and the market) against reality. Fresh classes (2025+) show "-" until careers exist.</div>
-      <div><b>Trust level</b> - the edge is a small, honestly validated signal (+0.013 average rank lift, 9 of 11 years). Strongest for late-round EDGE/RB flags; weakest for QBs. It will not out-forecast the whole first round.</div>
+      <div><b>Trust level</b> - the edge is a small, honestly validated signal (+0.014 average rank lift, 9 of 11 years, worst year -0.023). Strongest for late-round EDGE/RB flags; weakest for QBs. It will not out-forecast the whole first round.</div>
       <div><b>PFF model*</b> - an experimental second opinion from position-specific models fed with PFF college data (QB passing, WR/TE/RB receiving) and ESPN QBR. Richest for 2015+ classes; its extra data has NOT yet proven lift on finished careers, so treat gaps vs the main grade as scouting flags, not verdicts.</div>
       <div><b>Live update*</b> - for classes 1-3 NFL seasons in (2022-2024): the pre-draft grade blended with how the career is actually going so far. The blend weight grows with seasons played (25% per season, heuristic).</div>
     </div>

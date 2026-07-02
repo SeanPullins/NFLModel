@@ -33,7 +33,7 @@
     "wr_production": {
       "path": "/home/user/NFLModel/data/production/wr_production.csv",
       "exists": true,
-      "rows": 385,
+      "rows": 550,
       "features_present": [
         "wr_yards_per_route_run",
         "wr_yards_per_route_run_final",
@@ -60,7 +60,7 @@
     "rb_production": {
       "path": "/home/user/NFLModel/data/production/rb_production.csv",
       "exists": true,
-      "rows": 107,
+      "rows": 149,
       "features_present": [
         "rb_yards_per_route_run",
         "rb_yards_per_route_run_final",
@@ -79,7 +79,7 @@
     "te_production": {
       "path": "/home/user/NFLModel/data/production/te_production.csv",
       "exists": true,
-      "rows": 166,
+      "rows": 218,
       "features_present": [
         "te_yards_per_route_run",
         "te_yards_per_route_run_final",
@@ -259,96 +259,96 @@
       "non_null": 214
     },
     "wr_yards_per_route_run": {
-      "coverage": 0.024322446143154968,
-      "non_null": 210
+      "coverage": 0.0423905489923558,
+      "non_null": 366
     },
     "wr_yards_per_route_run_final": {
-      "coverage": 0.024322446143154968,
-      "non_null": 210
+      "coverage": 0.0423905489923558,
+      "non_null": 366
     },
     "wr_pff_route_grade": {
-      "coverage": 0.024322446143154968,
-      "non_null": 210
+      "coverage": 0.0423905489923558,
+      "non_null": 366
     },
     "wr_pff_route_grade_final": {
-      "coverage": 0.024322446143154968,
-      "non_null": 210
+      "coverage": 0.0423905489923558,
+      "non_null": 366
     },
     "wr_pff_man_yprr": {
       "coverage": 0.0,
       "non_null": 0
     },
     "wr_pff_deep_target_share": {
-      "coverage": 0.024322446143154968,
-      "non_null": 210
+      "coverage": 0.0423905489923558,
+      "non_null": 366
     },
     "wr_pff_drop_rate": {
-      "coverage": 0.024206624971044706,
-      "non_null": 209
+      "coverage": 0.04227472782024554,
+      "non_null": 365
     },
     "wr_pff_contested_catch_rate": {
       "coverage": 0.02165855918461895,
       "non_null": 187
     },
     "wr_pff_slot_route_share": {
-      "coverage": 0.024322446143154968,
-      "non_null": 210
+      "coverage": 0.0423905489923558,
+      "non_null": 366
     },
     "wr_pff_yac_per_rec": {
-      "coverage": 0.024206624971044706,
-      "non_null": 209
+      "coverage": 0.04227472782024554,
+      "non_null": 365
     },
     "wr_pff_routes": {
-      "coverage": 0.024322446143154968,
-      "non_null": 210
+      "coverage": 0.0423905489923558,
+      "non_null": 366
     },
     "rb_yards_per_route_run": {
-      "coverage": 0.005327773917072041,
-      "non_null": 46
+      "coverage": 0.008918230252490155,
+      "non_null": 77
     },
     "rb_yards_per_route_run_final": {
-      "coverage": 0.005327773917072041,
-      "non_null": 46
+      "coverage": 0.008918230252490155,
+      "non_null": 77
     },
     "rb_pff_route_grade": {
-      "coverage": 0.005327773917072041,
-      "non_null": 46
+      "coverage": 0.008918230252490155,
+      "non_null": 77
     },
     "rb_pff_yac_per_rec": {
-      "coverage": 0.005211952744961779,
-      "non_null": 45
+      "coverage": 0.008802409080379893,
+      "non_null": 76
     },
     "rb_pff_routes": {
-      "coverage": 0.005327773917072041,
-      "non_null": 46
+      "coverage": 0.008918230252490155,
+      "non_null": 77
     },
     "te_yards_per_route_run": {
-      "coverage": 0.009265693768820941,
-      "non_null": 80
+      "coverage": 0.014940931202223767,
+      "non_null": 129
     },
     "te_yards_per_route_run_final": {
-      "coverage": 0.009265693768820941,
-      "non_null": 80
+      "coverage": 0.014940931202223767,
+      "non_null": 129
     },
     "te_pff_route_grade": {
-      "coverage": 0.009265693768820941,
-      "non_null": 80
+      "coverage": 0.014940931202223767,
+      "non_null": 129
     },
     "te_pff_man_yprr": {
       "coverage": 0.0,
       "non_null": 0
     },
     "te_pff_drop_rate": {
-      "coverage": 0.009034051424600417,
-      "non_null": 78
+      "coverage": 0.014709288858003242,
+      "non_null": 127
     },
     "te_pff_slot_route_share": {
-      "coverage": 0.009265693768820941,
-      "non_null": 80
+      "coverage": 0.014940931202223767,
+      "non_null": 129
     },
     "te_pff_routes": {
-      "coverage": 0.009265693768820941,
-      "non_null": 80
+      "coverage": 0.014940931202223767,
+      "non_null": 129
     },
     "espn_pos_rank": {
       "coverage": 0.6063238359972203,

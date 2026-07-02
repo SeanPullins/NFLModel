@@ -65,20 +65,25 @@ def available_extra_features(
     era the model is about to be applied to. Older rows stay NaN, which
     LightGBM handles natively.
     """
-    wanted: list[str] = []
-    for pos in positions:
-        wanted.extend(production_features_for_pos(pos))
     recent_cutoff = pd.to_numeric(train["Year"], errors="coerce").max() - (recent_years - 1)
     recent = train[pd.to_numeric(train["Year"], errors="coerce") >= recent_cutoff]
     scope = recent if len(recent) >= 100 else train
+    drafted = scope[pd.to_numeric(scope["Pick"], errors="coerce").lt(263)]
     out: list[str] = []
-    for col in sorted(set(wanted)):
-        if col not in train.columns:
+    for pos in positions:
+        # Position-prefixed features are NaN for the family's other positions
+        # by construction, so coverage is judged within the owning position's
+        # drafted rows.
+        pos_rows = drafted[drafted["pos_g"].astype(str).eq(pos)]
+        if pos_rows.empty:
             continue
-        coverage = pd.to_numeric(scope[col], errors="coerce").notna().mean()
-        if coverage >= min_coverage:
-            out.append(col)
-    return out
+        for col in production_features_for_pos(pos):
+            if col not in train.columns or col in out:
+                continue
+            coverage = pd.to_numeric(pos_rows[col], errors="coerce").notna().mean()
+            if coverage >= min_coverage:
+                out.append(col)
+    return sorted(out)
 
 
 def fit_position_residuals(

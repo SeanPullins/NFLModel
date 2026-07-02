@@ -61,6 +61,8 @@ def load_pff_seasons() -> pd.DataFrame:
     for path in sorted(PFF_DIR.glob("*")):
         if path.suffix.lower() not in {".xlsx", ".xls", ".csv"}:
             continue
+        if path.name.startswith("receiving-"):
+            continue  # handled by build_receiving_player_seasons
         df = read_banner_aware(path)
         if "_season" in df.columns:
             df["season"] = pd.to_numeric(df["_season"], errors="coerce")
@@ -151,6 +153,128 @@ def aggregate_qb(matched: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+RECEIVING_FILE_RE = re.compile(r"receiving-(concept|depth|scheme)__.*__(\d{4})\.csv$")
+RECEIVING_POS_GROUP = {"WR": "wr", "TE": "te", "HB": "rb", "FB": "rb"}
+
+
+def _split_sum(df: pd.DataFrame, prefixes: tuple[str, ...], stat: str) -> pd.Series:
+    total = pd.Series(0.0, index=df.index)
+    for prefix in prefixes:
+        col = f"{prefix}_{stat}"
+        if col in df.columns:
+            total = total + pd.to_numeric(df[col], errors="coerce").fillna(0.0)
+    return total
+
+
+def _split_weighted(df: pd.DataFrame, prefixes: tuple[str, ...], stat: str, weight_stat: str = "routes") -> pd.Series:
+    num = pd.Series(0.0, index=df.index)
+    den = pd.Series(0.0, index=df.index)
+    for prefix in prefixes:
+        vcol, wcol = f"{prefix}_{stat}", f"{prefix}_{weight_stat}"
+        if vcol not in df.columns or wcol not in df.columns:
+            continue
+        v = pd.to_numeric(df[vcol], errors="coerce")
+        w = pd.to_numeric(df[wcol], errors="coerce").fillna(0.0)
+        mask = v.notna()
+        num[mask] += (v * w)[mask]
+        den[mask] += w[mask]
+    return (num / den.replace(0, np.nan))
+
+
+def build_receiving_player_seasons() -> pd.DataFrame:
+    """One row per pass-catcher per season with overall metrics rebuilt from
+    the concept (slot/screen/wide), scheme (man/zone), and depth splits."""
+    tables: dict[tuple[str, int], pd.DataFrame] = {}
+    for path in sorted(PFF_DIR.glob("receiving-*.csv")):
+        match = RECEIVING_FILE_RE.search(path.name)
+        if not match:
+            continue
+        tables[(match.group(1), int(match.group(2)))] = pd.read_csv(path, low_memory=False)
+
+    rows = []
+    seasons = sorted({season for (_, season) in tables})
+    align = ("slot", "screen", "wide")
+    for season in seasons:
+        concept = tables.get(("concept", season))
+        if concept is None:
+            continue
+        c = concept.copy()
+        c["routes"] = _split_sum(c, align, "routes")
+        c["targets"] = _split_sum(c, align, "targets")
+        c["yards"] = _split_sum(c, align, "yards")
+        c["receptions"] = _split_sum(c, align, "receptions")
+        c["drops"] = _split_sum(c, align, "drops")
+        c["contested_rec"] = _split_sum(c, ("slot", "wide"), "contested_receptions")
+        c["contested_tgt"] = _split_sum(c, ("slot", "wide"), "contested_targets")
+        c["yac"] = _split_sum(c, align, "yards_after_catch")
+        c["route_grade"] = _split_weighted(c, align, "grades_pass_route")
+        c["yprr"] = c["yards"] / c["routes"].replace(0, np.nan)
+        c["slot_route_share"] = pd.to_numeric(c.get("slot_routes"), errors="coerce").fillna(0.0) / c["routes"].replace(0, np.nan)
+        c["drop_rate"] = c["drops"] / (c["receptions"] + c["drops"]).replace(0, np.nan)
+        c["contested_catch_rate"] = c["contested_rec"] / c["contested_tgt"].replace(0, np.nan)
+        c["yac_per_rec"] = c["yac"] / c["receptions"].replace(0, np.nan)
+
+        keep = c[["player", "player_id", "position", "team_name", "routes", "targets", "yards",
+                  "yprr", "route_grade", "slot_route_share", "drop_rate", "contested_catch_rate",
+                  "yac_per_rec"]].copy()
+
+        scheme = tables.get(("scheme", season))
+        if scheme is not None:
+            s = scheme.copy()
+            s["man_yprr"] = pd.to_numeric(s.get("man_yprr"), errors="coerce")
+            keep = keep.merge(s[["player_id", "man_yprr"]], on="player_id", how="left")
+
+        depth = tables.get(("depth", season))
+        if depth is not None:
+            d = depth.copy()
+            d["deep_targets"] = pd.to_numeric(d.get("deep_targets"), errors="coerce")
+            d["all_depth_targets"] = _split_sum(d, ("deep", "medium", "short", "behind_los"), "targets")
+            d["deep_target_share"] = d["deep_targets"] / d["all_depth_targets"].replace(0, np.nan)
+            keep = keep.merge(d[["player_id", "deep_target_share"]], on="player_id", how="left")
+
+        keep["season"] = season
+        rows.append(keep)
+    if not rows:
+        return pd.DataFrame()
+    out = pd.concat(rows, ignore_index=True)
+    out = out[out["routes"] >= 50]  # ignore trick-play / special-teams noise
+    out["name_key"] = out["player"].map(norm)
+    return out.drop_duplicates(["name_key", "season"], keep="first")
+
+
+RECEIVING_METRICS = ["yprr", "route_grade", "slot_route_share", "drop_rate",
+                     "contested_catch_rate", "yac_per_rec", "man_yprr", "deep_target_share"]
+
+
+def aggregate_receiving(matched: pd.DataFrame) -> dict[str, pd.DataFrame]:
+    """Route-weighted career + final-season receiving features per draft class,
+    split into wr/te/rb production tables."""
+    out: dict[str, list[dict]] = {"wr": [], "te": [], "rb": []}
+    for (name_key, year), g in matched.groupby(["name_key", "Year"]):
+        g = g.sort_values("season")
+        final = g.iloc[-1]
+        group = RECEIVING_POS_GROUP.get(str(final["position"]).upper())
+        if group is None:
+            continue
+        weights = pd.to_numeric(g["routes"], errors="coerce").clip(lower=1)
+        row = {
+            "Year": int(year),
+            "Player": str(final["Player"]).strip(),
+            f"{group}_pff_routes": float(g["routes"].sum()),
+            f"{group}_pff_seasons": int(g["season"].nunique()),
+        }
+        for metric in RECEIVING_METRICS:
+            if metric not in g.columns:
+                continue
+            values = pd.to_numeric(g[metric], errors="coerce")
+            mask = values.notna()
+            name = "yards_per_route_run" if metric == "yprr" else f"pff_{metric}"
+            row[f"{group}_{name}"] = float(np.average(values[mask], weights=weights[mask])) if mask.any() else np.nan
+            row[f"{group}_{name}_final"] = float(final[metric]) if pd.notna(final[metric]) else np.nan
+        out[group].append(row)
+    return {k: pd.DataFrame(v) for k, v in out.items() if v}
+
+
 def merge_into_production(features: pd.DataFrame, filename: str) -> Path:
     path = PRODUCTION_DIR / filename
     if path.exists():
@@ -179,8 +303,18 @@ def main() -> None:
         print(f"Merged {len(qb)} QB draft-class rows into {path}")
         print("QB classes covered:", qb.groupby("Year").size().to_dict())
 
+    receiving = build_receiving_player_seasons()
+    if not receiving.empty:
+        rec_matched = match_to_draft_classes(receiving, draft, positions=("WR", "TE", "HB", "FB", "RB"))
+        rec_features = aggregate_receiving(rec_matched)
+        for group, frame in rec_features.items():
+            path = merge_into_production(frame, f"{group}_production.csv")
+            print(f"Merged {len(frame)} {group.upper()} draft-class rows into {path}: classes {frame.groupby('Year').size().to_dict()}")
+        rec_seasons = sorted(receiving["season"].unique())
+        print("Receiving seasons on hand:", rec_seasons)
+
     seasons = sorted(pff["season"].unique())
-    print("\nPFF seasons on hand:", seasons)
+    print("\nPFF passing seasons on hand:", seasons)
     missing = [y for y in range(2014, 2026) if y not in seasons]
     if missing:
         print("Missing seasons for full QB coverage:", missing)

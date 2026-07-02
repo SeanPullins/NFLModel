@@ -60,6 +60,17 @@ PRODUCTION_FEATURES_BY_GROUP: dict[str, tuple[str, ...]] = {
         "wr_explosive_reception_rate",
         "wr_contested_catch_rate",
         "wr_slot_rate",
+        # PFF receiving features (src/build_pff_features.py; local only, licensed)
+        "wr_yards_per_route_run_final",
+        "wr_pff_route_grade",
+        "wr_pff_route_grade_final",
+        "wr_pff_man_yprr",
+        "wr_pff_deep_target_share",
+        "wr_pff_drop_rate",
+        "wr_pff_contested_catch_rate",
+        "wr_pff_slot_route_share",
+        "wr_pff_yac_per_rec",
+        "wr_pff_routes",
     ),
     "RB": (
         "rb_yards_after_contact_per_attempt",
@@ -67,6 +78,11 @@ PRODUCTION_FEATURES_BY_GROUP: dict[str, tuple[str, ...]] = {
         "rb_explosive_run_rate",
         "rb_receiving_share",
         "rb_yards_per_route_run",
+        # PFF receiving features
+        "rb_yards_per_route_run_final",
+        "rb_pff_route_grade",
+        "rb_pff_yac_per_rec",
+        "rb_pff_routes",
     ),
     "TE": (
         "te_yards_per_route_run",
@@ -74,6 +90,13 @@ PRODUCTION_FEATURES_BY_GROUP: dict[str, tuple[str, ...]] = {
         "te_receiving_share",
         "te_inline_rate",
         "te_slot_rate",
+        # PFF receiving features
+        "te_yards_per_route_run_final",
+        "te_pff_route_grade",
+        "te_pff_man_yprr",
+        "te_pff_drop_rate",
+        "te_pff_slot_route_share",
+        "te_pff_routes",
     ),
     "OL": (
         "ol_pressure_rate_allowed",

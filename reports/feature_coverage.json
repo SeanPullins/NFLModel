@@ -32,11 +32,22 @@
     },
     "wr_production": {
       "path": "/home/user/NFLModel/data/production/wr_production.csv",
-      "exists": false,
-      "rows": 0,
-      "features_present": [],
-      "features_missing": [
+      "exists": true,
+      "rows": 99,
+      "features_present": [
         "wr_yards_per_route_run",
+        "wr_yards_per_route_run_final",
+        "wr_pff_route_grade",
+        "wr_pff_route_grade_final",
+        "wr_pff_man_yprr",
+        "wr_pff_deep_target_share",
+        "wr_pff_drop_rate",
+        "wr_pff_contested_catch_rate",
+        "wr_pff_slot_route_share",
+        "wr_pff_yac_per_rec",
+        "wr_pff_routes"
+      ],
+      "features_missing": [
         "wr_target_share",
         "wr_dominator",
         "wr_breakout_age",
@@ -44,35 +55,47 @@
         "wr_contested_catch_rate",
         "wr_slot_rate"
       ],
-      "usable": false
+      "usable": true
     },
     "rb_production": {
       "path": "/home/user/NFLModel/data/production/rb_production.csv",
-      "exists": false,
-      "rows": 0,
-      "features_present": [],
+      "exists": true,
+      "rows": 38,
+      "features_present": [
+        "rb_yards_per_route_run",
+        "rb_yards_per_route_run_final",
+        "rb_pff_route_grade",
+        "rb_pff_yac_per_rec",
+        "rb_pff_routes"
+      ],
       "features_missing": [
         "rb_yards_after_contact_per_attempt",
         "rb_missed_tackles_forced_rate",
         "rb_explosive_run_rate",
-        "rb_receiving_share",
-        "rb_yards_per_route_run"
+        "rb_receiving_share"
       ],
-      "usable": false
+      "usable": true
     },
     "te_production": {
       "path": "/home/user/NFLModel/data/production/te_production.csv",
-      "exists": false,
-      "rows": 0,
-      "features_present": [],
-      "features_missing": [
+      "exists": true,
+      "rows": 51,
+      "features_present": [
         "te_yards_per_route_run",
+        "te_yards_per_route_run_final",
+        "te_pff_route_grade",
+        "te_pff_man_yprr",
+        "te_pff_drop_rate",
+        "te_pff_slot_route_share",
+        "te_pff_routes"
+      ],
+      "features_missing": [
         "te_target_share",
         "te_receiving_share",
         "te_inline_rate",
         "te_slot_rate"
       ],
-      "usable": false
+      "usable": true
     },
     "ol_production": {
       "path": "/home/user/NFLModel/data/production/ol_production.csv",
@@ -234,6 +257,98 @@
     "qb_run_epa_per_play": {
       "coverage": 0.024785730831596017,
       "non_null": 214
+    },
+    "wr_yards_per_route_run": {
+      "coverage": 0.0,
+      "non_null": 0
+    },
+    "wr_yards_per_route_run_final": {
+      "coverage": 0.0,
+      "non_null": 0
+    },
+    "wr_pff_route_grade": {
+      "coverage": 0.0,
+      "non_null": 0
+    },
+    "wr_pff_route_grade_final": {
+      "coverage": 0.0,
+      "non_null": 0
+    },
+    "wr_pff_man_yprr": {
+      "coverage": 0.0,
+      "non_null": 0
+    },
+    "wr_pff_deep_target_share": {
+      "coverage": 0.0,
+      "non_null": 0
+    },
+    "wr_pff_drop_rate": {
+      "coverage": 0.0,
+      "non_null": 0
+    },
+    "wr_pff_contested_catch_rate": {
+      "coverage": 0.0,
+      "non_null": 0
+    },
+    "wr_pff_slot_route_share": {
+      "coverage": 0.0,
+      "non_null": 0
+    },
+    "wr_pff_yac_per_rec": {
+      "coverage": 0.0,
+      "non_null": 0
+    },
+    "wr_pff_routes": {
+      "coverage": 0.0,
+      "non_null": 0
+    },
+    "rb_yards_per_route_run": {
+      "coverage": 0.0,
+      "non_null": 0
+    },
+    "rb_yards_per_route_run_final": {
+      "coverage": 0.0,
+      "non_null": 0
+    },
+    "rb_pff_route_grade": {
+      "coverage": 0.0,
+      "non_null": 0
+    },
+    "rb_pff_yac_per_rec": {
+      "coverage": 0.0,
+      "non_null": 0
+    },
+    "rb_pff_routes": {
+      "coverage": 0.0,
+      "non_null": 0
+    },
+    "te_yards_per_route_run": {
+      "coverage": 0.0,
+      "non_null": 0
+    },
+    "te_yards_per_route_run_final": {
+      "coverage": 0.0,
+      "non_null": 0
+    },
+    "te_pff_route_grade": {
+      "coverage": 0.0,
+      "non_null": 0
+    },
+    "te_pff_man_yprr": {
+      "coverage": 0.0,
+      "non_null": 0
+    },
+    "te_pff_drop_rate": {
+      "coverage": 0.0,
+      "non_null": 0
+    },
+    "te_pff_slot_route_share": {
+      "coverage": 0.0,
+      "non_null": 0
+    },
+    "te_pff_routes": {
+      "coverage": 0.0,
+      "non_null": 0
     },
     "espn_pos_rank": {
       "coverage": 0.6063238359972203,

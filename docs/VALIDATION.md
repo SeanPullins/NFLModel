@@ -97,9 +97,9 @@ weak college pedigree 27%/16%, poor agility 23%/13%. See
 
 ## PFF QB features: first measurement (2026-07, partial seasons)
 
-With PFF passing-page exports for 11 of 12 seasons (2014-2022, 2024, 2025;
-only 2023 missing) mapped into QB features and the recent-window coverage
-rule active:
+With PFF passing-page exports for all 12 seasons (2014-2025; the 2023 table
+arrived inside a mislabeled Rushing export) mapped into QB features and the
+recent-window coverage rule active:
 
 | Challenger config | Mean lift | Wins | Worst |
 |---|---:|---:|---:|

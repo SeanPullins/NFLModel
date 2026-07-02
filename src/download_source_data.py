@@ -247,14 +247,21 @@ def _recent_from_dynastyprocess(text: str, after_year: int) -> pd.DataFrame:
     )
 
 
-def extend_recent_drafts(draft: pd.DataFrame) -> pd.DataFrame:
-    """Append draft classes newer than the phcs971 outcome data.
+TOPUP_FROM_YEAR = 2022  # phcs971 undercounts drafted players from here on
 
-    Without this, classes whose draft already happened (e.g. 2025/2026) show up
-    as pick-less "prospects", which is wrong. CarAV stays 0 for appended years;
-    add_targets masks outcomes for classes with no recorded career value.
+
+def extend_recent_drafts(draft: pd.DataFrame) -> pd.DataFrame:
+    """Complete recent draft classes from nflverse/dynastyprocess.
+
+    Two jobs: append classes newer than the phcs971 data entirely (2025+), and
+    top up recent phcs971 classes that are missing drafted players (~208-231
+    of ~259 for 2022-2024). CarAV stays 0 for added rows; add_targets masks
+    outcomes for classes with no recorded career value, and partially-covered
+    classes keep their recorded outcomes.
     """
-    after_year = int(draft["Year"].max())
+    from pipeline import norm  # local import to avoid cycle at module load
+
+    after_year = TOPUP_FROM_YEAR - 1
     recent = None
     for url, parse in (
         (NFLVERSE_DRAFT_PICKS_URL, _recent_from_nflverse),
@@ -272,13 +279,16 @@ def extend_recent_drafts(draft: pd.DataFrame) -> pd.DataFrame:
             print(f"WARNING: recent draft results from {url} failed: {exc}")
     if recent is None:
         print("WARNING: no recent draft results source available; classes after "
-              f"{after_year} will appear as prospects without picks.")
+              f"{int(draft['Year'].max())} will appear as prospects without picks.")
         return draft
 
     recent = recent[recent["Player"].notna() & recent["Pick"].notna()]
     recent = recent.sort_values(["Year", "Pick"]).drop_duplicates(["Year", "Player"], keep="first")
-    print("Appended recent draft classes:", recent.groupby("Year").size().to_dict())
-    return pd.concat([draft, recent], ignore_index=True)
+    existing = set(draft["Player"].map(norm) + "_" + draft["Year"].astype(int).astype(str))
+    recent_keys = recent["Player"].map(norm) + "_" + recent["Year"].astype(int).astype(str)
+    additions = recent[~recent_keys.isin(existing)]
+    print("Added draft rows by class:", additions.groupby("Year").size().to_dict())
+    return pd.concat([draft, additions], ignore_index=True)
 
 
 def normalize_array_combine(array_df: pd.DataFrame) -> pd.DataFrame:

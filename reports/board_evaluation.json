@@ -1,0 +1,129 @@
+{
+  "scope": "published board, mature classes 2011-2021",
+  "caveat": "board scores are fit on all data (partly in-sample); out-of-time lift lives in rolling_backtest_summary",
+  "score_accuracy": {
+    "apex_conservative_050": {
+      "spearman_vs_outcome": 0.606,
+      "n": 2563
+    },
+    "apex": {
+      "spearman_vs_outcome": 0.6196,
+      "n": 2563
+    },
+    "apex_pff": {
+      "spearman_vs_outcome": 0.6885,
+      "n": 2563
+    },
+    "exp_at_pick": {
+      "spearman_vs_outcome": 0.5882,
+      "n": 2563
+    },
+    "implied_pick": {
+      "spearman_vs_outcome": 0.6191,
+      "n": 2563
+    },
+    "actual_pick_baseline": {
+      "spearman_vs_outcome": 0.5626,
+      "n": 2563
+    }
+  },
+  "tier_calibration": [
+    {
+      "p_star_bucket": "(0.0115, 0.0689]",
+      "n": 453,
+      "predicted_star": 0.044,
+      "actual_star": 0.044,
+      "predicted_bust": 0.506,
+      "actual_bust": 0.499
+    },
+    {
+      "p_star_bucket": "(0.0689, 0.0786]",
+      "n": 191,
+      "predicted_star": 0.079,
+      "actual_star": 0.105,
+      "predicted_bust": 0.358,
+      "actual_bust": 0.304
+    },
+    {
+      "p_star_bucket": "(0.0786, 0.133]",
+      "n": 364,
+      "predicted_star": 0.121,
+      "actual_star": 0.143,
+      "predicted_bust": 0.277,
+      "actual_bust": 0.247
+    },
+    {
+      "p_star_bucket": "(0.133, 0.176]",
+      "n": 348,
+      "predicted_star": 0.16,
+      "actual_star": 0.213,
+      "predicted_bust": 0.178,
+      "actual_bust": 0.149
+    },
+    {
+      "p_star_bucket": "(0.176, 0.275]",
+      "n": 332,
+      "predicted_star": 0.252,
+      "actual_star": 0.307,
+      "predicted_bust": 0.083,
+      "actual_bust": 0.066
+    },
+    {
+      "p_star_bucket": "(0.275, 0.393]",
+      "n": 355,
+      "predicted_star": 0.365,
+      "actual_star": 0.459,
+      "predicted_bust": 0.049,
+      "actual_bust": 0.028
+    },
+    {
+      "p_star_bucket": "(0.393, 0.62]",
+      "n": 328,
+      "predicted_star": 0.567,
+      "actual_star": 0.601,
+      "predicted_bust": 0.007,
+      "actual_bust": 0.003
+    },
+    {
+      "p_star_bucket": "(0.62, 0.804]",
+      "n": 192,
+      "predicted_star": 0.804,
+      "actual_star": 0.818,
+      "predicted_bust": 0.0,
+      "actual_bust": 0.0
+    }
+  ],
+  "fair_slot_quality": {
+    "steal_calls": {
+      "n": 655,
+      "beat_market_rate": 0.792
+    },
+    "neutral": {
+      "n": 1596,
+      "beat_market_rate": 0.612
+    },
+    "reach_calls": {
+      "n": 312,
+      "beat_market_rate": 0.397
+    }
+  },
+  "integrity": {
+    "apex_out_of_range": 0,
+    "apex_missing": 0,
+    "apex_conservative_050_out_of_range": 0,
+    "apex_conservative_050_missing": 0,
+    "exp_at_pick_out_of_range": 0,
+    "exp_at_pick_missing": 0,
+    "apex_pff_out_of_range": 0,
+    "apex_pff_missing": 0,
+    "drafted_counts_recent": {
+      "2022": 247,
+      "2023": 241,
+      "2024": 243,
+      "2025": 212,
+      "2026": 204
+    },
+    "duplicate_year_player": 0,
+    "immature_rows_showing_outcomes": 0
+  }
+}

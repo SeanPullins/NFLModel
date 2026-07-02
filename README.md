@@ -1,6 +1,17 @@
 # APEX Draft Model
 
-Two-stage residual NFL draft model + interactive scouting dashboard for historical NFL draft classes and forward-looking prospect watchlists.
+A **draft-market screener**: it finds where the NFL draft market is most
+likely wrong (steal flags, reach warnings, bust risk) rather than pretending
+to out-rank front offices. Two-stage residual model + interactive dashboard
+covering draft classes 2000-2026.
+
+What the evidence supports (and the site claims):
+
+- the draft itself is the strongest public predictor (~0.59 Spearman);
+- the model adds a small validated edge on top (+0.013-0.014 rank lift,
+  9-10 of 11 years), concentrated in steal/reach/bust flags;
+- nothing public - consensus boards, PFF grades - out-forecasts the market
+  pre-draft, so the honest product is disagreement detection, not replacement.
 
 ## Current honest validation status
 

@@ -117,6 +117,24 @@ projection input. Decision: promoted challenger stays QBR-only; PFF QB
 features remain in the data layer and can inform experimental projections
 for new classes. Re-measure when the 2022 class matures (~2027).
 
+## PFF receiving features: first measurement (2026-07, 2 testable years)
+
+Receiving data (concept/depth splits) covers seasons 2017, 2019, 2020,
+2022-2025, reaching 87% of drafted WRs in classes 2018-2021. After fixing the
+activation gate (position-prefixed features are NaN for the family's other
+positions, so coverage is now judged within the owning position's drafted
+rows), 16 WR/TE receiving features activate for test years 2020-2021 only:
+
+| Test year | QBR-only challenger | + receiving |
+|---|---:|---:|
+| 2020 | +0.0006 | **+0.0037** |
+| 2021 | +0.0297 | +0.0272 |
+| Mean 2011-2021 | +0.0139 (10/11) | +0.0139 (10/11) |
+
+One year up, one down - far too thin to promote or reject. Receiving seasons
+2014-2016 would add three more mature test years (classes 2015-2018) and
+settle it. Until then receiving stays projection input for 2022+ classes.
+
 ## Season-trajectory features: investigated, not implemented (2026-07)
 
 Public season-by-season college stats (JackLich10 `college_statistics.csv` and

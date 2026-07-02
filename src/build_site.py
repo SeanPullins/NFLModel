@@ -35,6 +35,7 @@ BASE_COLS = [
     "p_bust",
     "apex_pff",
     "pff_edge",
+    "apex_live",
 ]
 
 
@@ -48,6 +49,20 @@ def first_existing(df: pd.DataFrame, candidates: list[str], fallback: float | st
 df = pd.read_csv(DATA_PATH)
 df["Pick"] = df["Pick"].where(df["Pick"] < 263)
 df["College"] = df["College"].fillna("Unknown")
+
+# Stage-3 "living projection": for classes with partial careers (1-3 NFL
+# seasons of recorded AV), blend the pre-draft grade with the current
+# within-class outcome percentile. Weight grows with seasons elapsed
+# (heuristic, labeled as such on the site).
+OUTCOME_DATA_YEAR = 2024  # last NFL season reflected in CarAV
+seasons_elapsed = (OUTCOME_DATA_YEAR - df["Year"] + 1).clip(lower=0)
+live_weight = (0.25 * seasons_elapsed).clip(upper=0.75)
+partial = df["Year"].between(OUTCOME_DATA_YEAR - 2, OUTCOME_DATA_YEAR) & df["y"].notna()
+df["apex_live"] = np.nan
+df.loc[partial, "apex_live"] = (
+    (1 - live_weight[partial]) * pd.to_numeric(df.loc[partial, "apex_conservative_050"], errors="coerce")
+    + live_weight[partial] * pd.to_numeric(df.loc[partial, "y"], errors="coerce")
+)
 
 # Optional PFF-informed challenger scores (model outputs only; see
 # src/build_pff_scores.py). Merged by Year+Player when the file exists.
@@ -87,6 +102,7 @@ for col in [
     "p_bust",
     "apex_pff",
     "pff_edge",
+    "apex_live",
 ]:
     if col not in df.columns:
         df[col] = np.nan
@@ -109,6 +125,7 @@ for col in [
     "p_bust",
     "apex_pff",
     "pff_edge",
+    "apex_live",
 ]:
     df[col] = pd.to_numeric(df[col], errors="coerce").round(4)
 

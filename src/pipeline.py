@@ -477,8 +477,18 @@ def tune_position_shrinkage(
     candidates: np.ndarray | None = None,
     min_samples: int = 40,
     default: float = 0.4,
+    max_shrink: float = 0.8,
+    stability_margin: float = 0.02,
 ) -> dict[str, float]:
+    """Per-position residual weight tuned on the validation fold.
+
+    Stability rules (added after diagnosing the 2011 failure, where two good
+    validation years pushed DB shrink to 0.9 before a -0.08 test year): a
+    non-default weight is only accepted when it beats the default's validation
+    Spearman by `stability_margin`, and weights are capped at `max_shrink`.
+    """
     candidates = candidates if candidates is not None else np.arange(0, 1.05, 0.1)
+    candidates = np.asarray([c for c in candidates if c <= max_shrink])
     drafted = validation[validation["Pick"].lt(263) & validation["y"].notna()].copy()
     b = base(drafted)
     r = resid(drafted)
@@ -488,12 +498,14 @@ def tune_position_shrinkage(
         if len(group) < min_samples:
             shrink[str(pos)] = default
             continue
+        default_metric = safe_spearman(b[mask] + default * r[mask], drafted.loc[mask, "y"])
+        default_metric = default_metric if np.isfinite(default_metric) else -np.inf
         best_s, best_metric = default, -np.inf
         for s in candidates:
             metric = safe_spearman(b[mask] + s * r[mask], drafted.loc[mask, "y"])
             if np.isfinite(metric) and metric > best_metric:
                 best_s, best_metric = float(s), metric
-        shrink[str(pos)] = best_s
+        shrink[str(pos)] = best_s if best_metric > default_metric + stability_margin else default
     return shrink
 
 

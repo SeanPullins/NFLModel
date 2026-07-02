@@ -77,6 +77,9 @@ jobs:
           python src/build_features.py --end-year 2021
           python src/predraft_market.py --write-template --check
 
+      - name: Evaluate published board accuracy
+        run: python src/evaluate_board.py
+
       - name: Run pre-draft consensus backtest
         run: |
           python src/predraft_backtest.py \

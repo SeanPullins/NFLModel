@@ -33,6 +33,29 @@ Avoid claiming:
 | Pre-draft APEX (ESPN consensus baseline) | Measured, no edge | `predraft_backtest.py` report only |
 | Consensus board-vs-pick features | Experimental | `profile_plus_consensus` feature set |
 
+## Published-board evaluation (reports/board_evaluation.json)
+
+Accuracy of what the site actually displays, on mature drafted classes
+2011-2021 (n=2,563). Board scores are fit on all data, so these are partly
+in-sample; out-of-time lift is the rolling backtest's job.
+
+| Published number | Spearman vs outcome |
+|---|---:|
+| Actual pick | 0.563 |
+| Market curve (exp at pick) | 0.588 |
+| Main grade (Conservative 0.50) | 0.607 |
+| Raw APEX / fair slot | 0.622 / 0.621 |
+| PFF layer | 0.692 (**in-sample inflated**; honest out-of-time level ~0.60) |
+
+Tier odds are well calibrated (predicted 80.8% star -> actual 81.6%; 4.3% ->
+5.0%), slightly conservative mid-range. Fair-slot verdicts separate strongly:
+steal calls beat their slot 77%, neutral 62%, reach calls 40%.
+
+Data completeness: recent classes are topped up from nflverse when the
+primary source is short (2022-2024 were missing 30-50 drafted players each).
+Integrity checks (score ranges, duplicates, masked outcomes) run in CI via
+`src/evaluate_board.py`.
+
 ## Pre-draft validation result (2011-2021)
 
 With ESPN pre-draft boards (2004-2021) as the market proxy:

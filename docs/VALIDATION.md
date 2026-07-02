@@ -97,9 +97,9 @@ weak college pedigree 27%/16%, poor agility 23%/13%. See
 
 ## PFF QB features: first measurement (2026-07, partial seasons)
 
-With PFF passing-page exports for 11 of 12 seasons (2014-2022, 2024, 2025;
-only 2023 missing) mapped into QB features and the recent-window coverage
-rule active:
+With PFF passing-page exports for all 12 seasons (2014-2025; the 2023 table
+arrived inside a mislabeled Rushing export) mapped into QB features and the
+recent-window coverage rule active:
 
 | Challenger config | Mean lift | Wins | Worst |
 |---|---:|---:|---:|
@@ -116,6 +116,41 @@ censored - it cannot be validated yet, only shipped as clearly-labeled
 projection input. Decision: promoted challenger stays QBR-only; PFF QB
 features remain in the data layer and can inform experimental projections
 for new classes. Re-measure when the 2022 class matures (~2027).
+
+## PFF receiving features: first measurement (2026-07, 2 testable years)
+
+Receiving data (concept/depth splits) covers seasons 2017, 2019, 2020,
+2022-2025, reaching 87% of drafted WRs in classes 2018-2021. After fixing the
+activation gate (position-prefixed features are NaN for the family's other
+positions, so coverage is now judged within the owning position's drafted
+rows), 16 WR/TE receiving features activate for test years 2020-2021 only:
+
+| Test year | QBR-only challenger | + receiving |
+|---|---:|---:|
+| 2020 | +0.0006 | **+0.0037** |
+| 2021 | +0.0297 | +0.0272 |
+| Mean 2011-2021 | +0.0139 (10/11) | +0.0139 (10/11) |
+
+One year up, one down - far too thin to promote or reject. Receiving seasons
+2014-2016 would add three more mature test years (classes 2015-2018) and
+settle it. Until then receiving stays projection input for 2022+ classes.
+
+## PFF receiving features: measured, not promoted (2026-07)
+
+With receiving concept+depth tables for seasons 2014, 2017, 2019-2025 mapped
+into WR/TE/RB features (550 WR / 218 TE / 149 RB rows, classes 2015-2026) and
+per-position coverage gating fixed so the features genuinely activate
+(15-21 extras live in the SKILL family from the 2017 test year onward):
+
+| Challenger config | Mean lift | Wins | Worst |
+|---|---:|---:|---:|
+| + ESPN college QBR (promoted) | **+0.0139** | **10/11** | -0.0515 |
+| + QBR + PFF receiving | +0.0133 | 9/11 | -0.0515 |
+
+Receiving-active years: 2018 improves (+0.0021) but 2017/2019/2020/2021 all
+slip (-0.001 to -0.004) and 2020 flips negative. On mature classes the draft
+market already prices YPRR-style production; the features stay in the
+projection layer for new classes and out of the promoted config.
 
 ## Season-trajectory features: investigated, not implemented (2026-07)
 

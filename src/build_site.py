@@ -6,6 +6,7 @@ import pandas as pd
 from pandas.errors import EmptyDataError
 
 ROOT = Path(__file__).resolve().parents[1]
+# UX rebuild trigger: regenerate homepage with user-facing front-office labels.
 DATA_PATH = ROOT / "data" / "apex_board.csv"
 TEMPLATE_PATH = ROOT / "src" / "template.html"
 TARGETS = [ROOT / "index.html", ROOT / "docs" / "index.html"]

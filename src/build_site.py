@@ -3,6 +3,7 @@ import json
 
 import numpy as np
 import pandas as pd
+from pandas.errors import EmptyDataError
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_PATH = ROOT / "data" / "apex_board.csv"
@@ -38,6 +39,18 @@ BASE_COLS = [
     "apex_live",
 ]
 
+REQUIRED_INPUT_COLS = [
+    "Year",
+    "Player",
+    "Pos",
+    "pos_g",
+    "Pick",
+    "CarAV",
+    "y",
+    "apex",
+    "exp_at_pick",
+]
+
 
 def first_existing(df: pd.DataFrame, candidates: list[str], fallback: float | str | None = None):
     for col in candidates:
@@ -46,8 +59,27 @@ def first_existing(df: pd.DataFrame, candidates: list[str], fallback: float | st
     return fallback
 
 
-df = pd.read_csv(DATA_PATH)
+def load_board(path: Path = DATA_PATH) -> pd.DataFrame:
+    """Read the generated board and fail loudly before publishing bad pages."""
+    if not path.exists():
+        raise FileNotFoundError(f"Generated board missing: {path}. Run src/improve.py before src/build_site.py.")
+    if path.stat().st_size == 0:
+        raise ValueError(f"Generated board is empty: {path}. Refusing to publish a zero-row dashboard.")
+    try:
+        board = pd.read_csv(path)
+    except EmptyDataError as exc:
+        raise ValueError(f"Generated board has no CSV rows: {path}. Refusing to publish a zero-row dashboard.") from exc
+    if board.empty:
+        raise ValueError(f"Generated board has zero rows: {path}. Refusing to publish a zero-row dashboard.")
+    missing = [col for col in REQUIRED_INPUT_COLS if col not in board.columns]
+    if missing:
+        raise ValueError(f"Generated board is missing required columns {missing}: {path}")
+    return board
+
+
+df = load_board(DATA_PATH)
 df["Pick"] = df["Pick"].where(df["Pick"] < 263)
+df["College"] = first_existing(df, ["College", "college"], "Unknown")
 df["College"] = df["College"].fillna("Unknown")
 
 # Stage-3 "living projection": for classes with partial careers (1-3 NFL
@@ -59,10 +91,11 @@ seasons_elapsed = (OUTCOME_DATA_YEAR - df["Year"] + 1).clip(lower=0)
 live_weight = (0.25 * seasons_elapsed).clip(upper=0.75)
 partial = df["Year"].between(OUTCOME_DATA_YEAR - 2, OUTCOME_DATA_YEAR) & df["y"].notna()
 df["apex_live"] = np.nan
-df.loc[partial, "apex_live"] = (
-    (1 - live_weight[partial]) * pd.to_numeric(df.loc[partial, "apex_conservative_050"], errors="coerce")
-    + live_weight[partial] * pd.to_numeric(df.loc[partial, "y"], errors="coerce")
-)
+if "apex_conservative_050" in df.columns:
+    df.loc[partial, "apex_live"] = (
+        (1 - live_weight[partial]) * pd.to_numeric(df.loc[partial, "apex_conservative_050"], errors="coerce")
+        + live_weight[partial] * pd.to_numeric(df.loc[partial, "y"], errors="coerce")
+    )
 
 # Optional PFF-informed challenger scores (model outputs only; see
 # src/build_pff_scores.py). Merged by Year+Player when the file exists.
@@ -131,6 +164,8 @@ for col in [
 
 data = df[BASE_COLS].copy()
 rows = data.astype(object).where(pd.notnull(data), None).values.tolist()
+if not rows:
+    raise ValueError("Refusing to write dashboard with zero serialized rows.")
 payload = json.dumps(rows, separators=(",", ":"), allow_nan=False)
 html = TEMPLATE_PATH.read_text().replace("__DATA__", payload)
 

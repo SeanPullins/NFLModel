@@ -117,15 +117,28 @@ def add_production_scores(out: pd.DataFrame) -> pd.DataFrame:
     out["prospect_production_signal"] = "profile_only"
 
     qb = pos.eq("QB")
+    out["qb_pass_efficiency_score"] = np.nan
+    out["qb_creation_score"] = np.nan
     if qb.any():
-        qb_score = group_score(out.loc[qb], [
+        # 2024 lesson: an efficiency-only screen greenlit clean low-volume
+        # profiles (McCarthy/Nix) while missing dual-threat creation value
+        # (Daniels). QB production is now two explicit sub-scores.
+        pass_score = group_score(out.loc[qb], [
             ("cfbd_pass_int_rate", False),
             ("cfbd_pass_td_rate", True),
             ("cfbd_pass_ypa", True),
             ("cfbd_final_pass_ypa", True),
         ])
-        out.loc[qb, "prospect_production_score"] = qb_score
-        out.loc[qb, "prospect_production_signal"] = "qb_decision_efficiency"
+        create_score = group_score(out.loc[qb], [
+            ("cfbd_rush_ypc", True),
+            ("cfbd_final_rush_ypc", True),
+            ("cfbd_best_total_yards", True),
+            ("cfbd_total_td", True),
+        ])
+        out.loc[qb, "qb_pass_efficiency_score"] = pass_score.round(4)
+        out.loc[qb, "qb_creation_score"] = create_score.round(4)
+        out.loc[qb, "prospect_production_score"] = (0.65 * pass_score + 0.35 * create_score)
+        out.loc[qb, "prospect_production_signal"] = "qb_efficiency_plus_creation"
 
     skill = pos.isin(["RB", "WR", "TE"])
     if skill.any():
@@ -157,9 +170,17 @@ def add_cautions(out: pd.DataFrame) -> pd.DataFrame:
     volume = percentile(num(out, "cfbd_best_total_yards"), True)
     tds = percentile(num(out, "cfbd_total_td"), True)
     prod = num(out, "prospect_production_score", 0.50)
+    qb_pass = num(out, "qb_pass_efficiency_score")
+    qb_create = num(out, "qb_creation_score")
     cautions: list[str] = []
     for i in out.index:
         flags = []
+        if (
+            pd.notna(qb_pass.loc[i]) and pd.notna(qb_create.loc[i])
+            and qb_pass.loc[i] >= 0.70 and qb_create.loc[i] <= 0.45
+        ):
+            # Clean but one-dimensional: efficiency without volume/creation.
+            flags.append("one_dimensional_efficiency_profile")
         if pd.notna(seasons.loc[i]) and seasons.loc[i] >= 5:
             flags.append("long_college_exposure")
         if prod.loc[i] < 0.40 and (volume.loc[i] >= 0.75 or tds.loc[i] >= 0.75):
@@ -183,10 +204,24 @@ def lens_call(row: pd.Series) -> str:
         return "historical_result"
     if caution >= 2 and score < 0.58:
         return "avoid_risk"
-    if pos == "QB" and score >= 0.72 and prod >= 0.55:
-        return "qb_model_greenlight"
-    if pos == "QB" and score >= 0.60:
-        return "qb_model_review"
+    if pos == "QB":
+        qb_pass = row.get("qb_pass_efficiency_score", np.nan)
+        qb_create = row.get("qb_creation_score", np.nan)
+        balanced = (
+            pd.notna(qb_pass) and pd.notna(qb_create)
+            and float(qb_pass) >= 0.45 and float(qb_create) >= 0.45
+        )
+        efficiency_only = (
+            pd.notna(qb_pass) and pd.notna(qb_create)
+            and float(qb_pass) >= 0.70 and float(qb_create) <= 0.45
+        )
+        # Greenlight requires strong score, strong production, balanced
+        # passing AND creation, zero caution flags, and no efficiency-only
+        # shape. Clean-but-limited profiles cannot clear the bar.
+        if score >= 0.72 and prod >= 0.55 and balanced and caution == 0 and not efficiency_only:
+            return "qb_model_greenlight"
+        if score >= 0.60:
+            return "qb_model_review"
     if score >= 0.78 and edge >= 0.020 and prod >= 0.52:
         return "priority_target"
     if score >= 0.68 and prod >= 0.48:

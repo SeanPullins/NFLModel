@@ -38,6 +38,10 @@ on:
       - "docs/cfbd_signal_research.md"
       - "docs/free_signal_scouting_plan.md"
 
+concurrency:
+  group: apex-backtests-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   backtest:
     runs-on: ubuntu-latest
@@ -179,12 +183,17 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+            echo "Main moved while this run was working; skipping generated repo commit. Pages artifact will still deploy."
+            exit 0
+          fi
           git add index.html docs/index.html data/apex_board.csv
           if git diff --cached --quiet; then
             echo "No generated site changes to commit."
           else
             git commit -m "Update generated APEX site"
-            git push
+            git push || { echo "Generated site push skipped because main moved during push."; exit 0; }
           fi
 
       - name: Prepare GitHub Pages artifact

@@ -27,6 +27,29 @@ class FeatureFileSpec:
     description: str
 
 
+CFBD_PRODUCTION_FEATURES: tuple[str, ...] = (
+    "cfbd_seasons",
+    "cfbd_best_total_yards",
+    "cfbd_final_total_yards",
+    "cfbd_total_td",
+    "cfbd_final_total_td",
+    "cfbd_touch_volume",
+    "cfbd_scrimmage_yards_per_touch",
+    "cfbd_final_scrimmage_yards_per_touch",
+    "cfbd_td_per_touch",
+    "cfbd_pass_ypa",
+    "cfbd_final_pass_ypa",
+    "cfbd_pass_td_rate",
+    "cfbd_pass_int_rate",
+    "cfbd_rush_ypc",
+    "cfbd_final_rush_ypc",
+    "cfbd_rec_ypr",
+    "cfbd_final_rec_ypr",
+    "cfbd_def_playmaking",
+    "cfbd_final_def_playmaking",
+    "cfbd_sack_tfl_per_tackle",
+)
+
 PRODUCTION_FEATURES_BY_GROUP: dict[str, tuple[str, ...]] = {
     "QB": (
         "qb_starts",
@@ -203,6 +226,12 @@ FEATURE_FILE_SPECS: tuple[FeatureFileSpec, ...] = (
         path=PRODUCTION_DIR / "db_production.csv",
         feature_columns=PRODUCTION_FEATURES_BY_GROUP["DB"],
         description="Defensive back coverage and tackling metrics.",
+    ),
+    FeatureFileSpec(
+        name="cfbd_production",
+        path=PRODUCTION_DIR / "cfbd_production.csv",
+        feature_columns=CFBD_PRODUCTION_FEATURES,
+        description="CollegeFootballData pre-draft production features for cross-era research.",
     ),
     FeatureFileSpec(
         name="consensus_board",

@@ -15,14 +15,15 @@ banned_public_terms = [
     "Hold Grade",
     "Tier odds",
     "Lens score",
+    "Very High",
 ]
 for term in banned_public_terms:
     if term in text:
-        errors.append(f"old/internal label still visible: {term}")
+        errors.append(f"old/internal or exaggerated label still visible: {term}")
 
 required_terms = [
     "Draft Projection Board",
-    "Model Pick",
+    "Should Have Gone",
     "Slot Value",
     "Outcome Chances",
     "Bust Risk",
@@ -33,12 +34,14 @@ for term in required_terms:
     if term not in text:
         errors.append(f"missing new plain-language label: {term}")
 
-if "Model Pick" in text and "range" in text.lower() and "slot" not in text:
-    errors.append("site may still describe model pick as a range instead of an exact slot")
+if "Model Pick" in text:
+    errors.append("site should say Should Have Gone, not Model Pick")
+if "range" in text.lower() and "slot" not in text:
+    errors.append("site may still describe model output as a range instead of an exact slot")
 
 if errors:
     print("FAIL")
     for error in errors:
         print(" -", error)
     sys.exit(1)
-print("PASS: public site labels are plain-language and slot-based")
+print("PASS: public site labels use should-have-gone slot language")

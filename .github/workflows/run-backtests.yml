@@ -17,6 +17,7 @@ on:
       - "src/improve.py"
       - "src/add_conservative_scores.py"
       - "src/build_site.py"
+      - "src/forecasting_sprint.py"
       - "src/template.html"
       - "src/backtest.py"
       - "src/position_models.py"
@@ -29,6 +30,7 @@ on:
       - "src/validation_gates.py"
       - "data/consensus/**"
       - "data/production/**"
+      - "docs/forecasting_sprint.md"
 
 jobs:
   backtest:
@@ -143,6 +145,9 @@ jobs:
           python src/validation_gates.py reports/position_ensemble_backtest_summary.csv --delta-col delta_ensemble_vs_pick_spearman_drafted --out reports/position_ensemble_validation_gates.json
           python src/validation_gates.py reports/nested_factor_backtest_summary.csv --delta-col delta_nested_vs_pick_spearman_drafted --out reports/nested_factor_validation_gates.json
 
+      - name: Build zero-cost forecasting sprint report
+        run: python src/forecasting_sprint.py --out-dir reports
+
       - name: Commit generated site files
         if: github.ref == 'refs/heads/main'
         run: |
@@ -170,6 +175,7 @@ jobs:
           cp reports/rolling_backtest_report.json _site/data/rolling_backtest_report.json || true
           cp reports/apex_factor_sweep_report.json _site/data/apex_factor_sweep_report.json || true
           cp reports/nested_factor_backtest_report.json _site/data/nested_factor_backtest_report.json || true
+          cp reports/forecasting_sprint_report.json _site/data/forecasting_sprint_report.json || true
           touch _site/.nojekyll
 
       - name: Configure GitHub Pages
@@ -208,6 +214,10 @@ jobs:
           cat reports/predraft_market_status.json || true
           echo "=== predraft_backtest_report.json ==="
           cat reports/predraft_backtest_report.json || true
+          echo "=== forecasting_sprint_report.json ==="
+          cat reports/forecasting_sprint_report.json || true
+          echo "=== forecasting_agent_tasks.md ==="
+          cat reports/forecasting_agent_tasks.md || true
           echo "=== validation gates ==="
           cat reports/rolling_validation_gates.json || true
           cat reports/position_model_validation_gates.json || true
@@ -222,6 +232,7 @@ jobs:
           path: |
             reports/*.json
             reports/*.csv
+            reports/*.md
             data/draft_data.csv
             data/combine_data_pfr_with_stats.csv
             data/apex_board.csv

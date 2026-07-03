@@ -97,11 +97,16 @@ def clean_qb_labels(board: pd.DataFrame) -> pd.DataFrame:
     label = out["qb_lens_label"].astype(str)
     needs = qb & label.isin(["", "nan", "None", "qb_model_greenlight", "qb_model_review"])
     new_label = pd.Series("qb_review_context_needed", index=out.index, dtype="object")
+    # Labels are pre-draft-information only. Early NFL outcomes never change
+    # the label (that was hindsight leakage); they surface via qb_lens_warning.
+    qb_pass = pd.to_numeric(out.get("qb_pass_efficiency_score", pd.Series(np.nan, index=out.index)), errors="coerce")
+    qb_create = pd.to_numeric(out.get("qb_creation_score", pd.Series(np.nan, index=out.index)), errors="coerce")
+    balanced = qb_pass.ge(0.45) & qb_create.ge(0.45)
+    caution_n = pd.to_numeric(out.get("prospect_caution_count", pd.Series(0, index=out.index)), errors="coerce").fillna(0)
     new_label[qb & (edge.le(-0.045) | prod.le(0.33) | score.lt(0.52))] = "qb_fade_risk"
     new_label[qb & score.ge(0.54) & score.lt(0.64) & edge.abs().le(0.035)] = "qb_market_aligned"
-    new_label[qb & score.ge(0.64) & (prod.ge(0.50) | edge.ge(0.010))] = "qb_buy_volatile"
-    new_label[qb & score.ge(0.76) & prod.ge(0.58) & (actual.isna() | actual.ge(0.55))] = "qb_buy_high_confidence"
-    new_label[qb & year.ge(RECENT_START_YEAR) & actual.notna() & actual.lt(0.45) & score.ge(0.64)] = "qb_projection_only_sample_warning"
+    new_label[qb & score.ge(0.64) & (prod.ge(0.50) | edge.ge(0.010)) & caution_n.eq(0)] = "qb_buy_volatile"
+    new_label[qb & score.ge(0.76) & prod.ge(0.58) & balanced & caution_n.eq(0)] = "qb_buy_high_confidence"
     out.loc[needs, "qb_lens_label"] = new_label[needs]
     out.loc[qb, "prospect_lens_call"] = out.loc[qb, "qb_lens_label"]
 
@@ -128,7 +133,17 @@ def clean_qb_labels(board: pd.DataFrame) -> pd.DataFrame:
             parts.append(f"fair slot {int(round(fair.loc[i]))} vs pick {int(round(pick.loc[i]))}")
         else:
             parts.append("profile/market projection")
-        if prod.loc[i] >= 0.58:
+        p, c = qb_pass.loc[i], qb_create.loc[i]
+        if pd.notna(p) and pd.notna(c):
+            if p >= 0.70 and c <= 0.45:
+                parts.append("efficiency-only profile; creation/volume unproven")
+            elif c >= 0.70 and p <= 0.35:
+                parts.append("creation-driven profile; passing efficiency lags")
+            elif p >= 0.55 and c >= 0.55:
+                parts.append("balanced passing + creation production")
+            else:
+                parts.append(f"pass eff {p:.0%} / creation {c:.0%}")
+        elif prod.loc[i] >= 0.58:
             parts.append("production layer supports")
         elif prod.loc[i] <= 0.42:
             parts.append("production caution")

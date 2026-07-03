@@ -21,9 +21,12 @@ SITE_COLS = [
     "prospect_is_recent", "prospect_lens_score", "prospect_lens_call", "prospect_lens_confidence",
     "prospect_lens_status", "prospect_production_score", "prospect_production_signal",
     "prospect_caution_flags", "prospect_caution_count", "prospect_signal_count",
+    "projection_phase", "outcome_data_year", "qb_lens_label", "qb_lens_confidence",
+    "qb_lens_warning", "qb_lens_reasons",
 ]
 
 REQUIRED_INPUT_COLS = ["Year", "Player", "Pos", "pos_g", "Pick", "CarAV", "y", "apex", "exp_at_pick"]
+RECENT_START_YEAR = 2024
 
 
 def first_existing(df: pd.DataFrame, candidates: list[str], fallback: float | str | None = None):
@@ -50,14 +53,103 @@ def load_board(path: Path = DATA_PATH) -> pd.DataFrame:
     return board
 
 
+def detect_outcome_data_year(board: pd.DataFrame) -> int:
+    years = pd.to_numeric(board.loc[pd.to_numeric(board["y"], errors="coerce").notna(), "Year"], errors="coerce").dropna()
+    if years.empty:
+        return 2024
+    return int(years.max())
+
+
+def default_projection_phase(board: pd.DataFrame) -> pd.Series:
+    year = pd.to_numeric(board["Year"], errors="coerce")
+    actual = pd.to_numeric(board["y"], errors="coerce")
+    out = pd.Series("unknown", index=board.index, dtype="object")
+    out[year.lt(RECENT_START_YEAR)] = "historical_validated"
+    out[year.ge(RECENT_START_YEAR) & actual.isna()] = "projection_only"
+    out[year.ge(RECENT_START_YEAR) & actual.notna()] = "projection_plus_partial_live"
+    return out
+
+
+def clean_qb_labels(board: pd.DataFrame) -> pd.DataFrame:
+    out = board.copy()
+    qb = out.get("pos_g", pd.Series("", index=out.index)).astype(str).eq("QB") | out.get("Pos", pd.Series("", index=out.index)).astype(str).eq("QB")
+    if "qb_lens_label" not in out.columns:
+        out["qb_lens_label"] = ""
+    if "qb_lens_confidence" not in out.columns:
+        out["qb_lens_confidence"] = ""
+    if "qb_lens_warning" not in out.columns:
+        out["qb_lens_warning"] = ""
+    if "qb_lens_reasons" not in out.columns:
+        out["qb_lens_reasons"] = ""
+
+    actual = pd.to_numeric(out.get("y", pd.Series(np.nan, index=out.index)), errors="coerce")
+    score = pd.to_numeric(out.get("prospect_lens_score", out.get("apex_score", pd.Series(0.50, index=out.index))), errors="coerce").fillna(0.50)
+    prod = pd.to_numeric(out.get("prospect_production_score", pd.Series(0.50, index=out.index)), errors="coerce").fillna(0.50)
+    edge = pd.to_numeric(out.get("front_office_edge", out.get("apex_edge", pd.Series(0.0, index=out.index))), errors="coerce").fillna(0.0)
+    year = pd.to_numeric(out.get("Year", pd.Series(np.nan, index=out.index)), errors="coerce")
+
+    warn = pd.Series("", index=out.index, dtype="object")
+    warn[qb & year.ge(RECENT_START_YEAR) & actual.isna()] = "projection_only_no_nfl_outcome"
+    warn[qb & year.ge(RECENT_START_YEAR) & actual.notna() & actual.lt(0.45)] = "partial_live_below_projection_sample_warning"
+    warn[qb & year.ge(RECENT_START_YEAR) & warn.eq("")] = "recent_class_partial_live_not_final"
+    out.loc[qb & out["qb_lens_warning"].astype(str).isin(["", "nan", "None"]), "qb_lens_warning"] = warn[qb]
+
+    label = out["qb_lens_label"].astype(str)
+    needs = qb & label.isin(["", "nan", "None", "qb_model_greenlight", "qb_model_review"])
+    new_label = pd.Series("qb_review_context_needed", index=out.index, dtype="object")
+    new_label[qb & (edge.le(-0.045) | prod.le(0.33) | score.lt(0.52))] = "qb_fade_risk"
+    new_label[qb & score.ge(0.54) & score.lt(0.64) & edge.abs().le(0.035)] = "qb_market_aligned"
+    new_label[qb & score.ge(0.64) & (prod.ge(0.50) | edge.ge(0.010))] = "qb_buy_volatile"
+    new_label[qb & score.ge(0.76) & prod.ge(0.58) & (actual.isna() | actual.ge(0.55))] = "qb_buy_high_confidence"
+    new_label[qb & year.ge(RECENT_START_YEAR) & actual.notna() & actual.lt(0.45) & score.ge(0.64)] = "qb_projection_only_sample_warning"
+    out.loc[needs, "qb_lens_label"] = new_label[needs]
+    out.loc[qb, "prospect_lens_call"] = out.loc[qb, "qb_lens_label"]
+
+    conf = out["qb_lens_confidence"].astype(str)
+    conf_needs = qb & conf.isin(["", "nan", "None"])
+    out.loc[conf_needs, "qb_lens_confidence"] = np.where(
+        out.loc[conf_needs, "qb_lens_label"].eq("qb_projection_only_sample_warning"),
+        "medium_projection_low_live",
+        out.loc[conf_needs, "prospect_lens_confidence"].fillna("medium"),
+    )
+    out.loc[qb, "prospect_lens_confidence"] = out.loc[qb, "qb_lens_confidence"]
+
+    reasons = out["qb_lens_reasons"].astype(str)
+    reasons_need = qb & reasons.isin(["", "nan", "None"])
+    fair = pd.to_numeric(out.get("implied_pick", pd.Series(np.nan, index=out.index)), errors="coerce")
+    pick = pd.to_numeric(out.get("Pick", pd.Series(np.nan, index=out.index)), errors="coerce")
+    generated_reasons = []
+    for i in out.index:
+        if not reasons_need.loc[i]:
+            generated_reasons.append(out.at[i, "qb_lens_reasons"])
+            continue
+        parts = []
+        if pd.notna(fair.loc[i]) and pd.notna(pick.loc[i]):
+            parts.append(f"fair slot {int(round(fair.loc[i]))} vs pick {int(round(pick.loc[i]))}")
+        else:
+            parts.append("profile/market projection")
+        if prod.loc[i] >= 0.58:
+            parts.append("production layer supports")
+        elif prod.loc[i] <= 0.42:
+            parts.append("production caution")
+        else:
+            parts.append("production mixed/incomplete")
+        if pd.notna(actual.loc[i]):
+            parts.append("partial NFL evidence confirming" if actual.loc[i] >= 0.55 else "partial NFL evidence below projection")
+        else:
+            parts.append("projection only")
+        generated_reasons.append(" | ".join(parts[:3]))
+    out.loc[reasons_need, "qb_lens_reasons"] = pd.Series(generated_reasons, index=out.index)[reasons_need]
+    return out
+
+
 df = load_board(DATA_PATH)
 df["Pick"] = df["Pick"].where(df["Pick"] < 263)
 df["College"] = first_existing(df, ["College", "college"], "Unknown")
 df["College"] = df["College"].fillna("Unknown")
 
-OUTCOME_DATA_YEAR = 2024
-seasons_elapsed = (pd.to_numeric(df["Year"], errors="coerce") - 0)
-seasons_elapsed = (OUTCOME_DATA_YEAR - seasons_elapsed + 1).clip(lower=0)
+OUTCOME_DATA_YEAR = detect_outcome_data_year(df)
+seasons_elapsed = (OUTCOME_DATA_YEAR - pd.to_numeric(df["Year"], errors="coerce") + 1).clip(lower=0)
 live_weight = (0.25 * seasons_elapsed).clip(upper=0.75)
 partial = df["Year"].between(OUTCOME_DATA_YEAR - 2, OUTCOME_DATA_YEAR) & df["y"].notna()
 df["apex_live"] = np.nan
@@ -77,7 +169,6 @@ if "Rnd" not in df.columns:
     round_bins = [0, 32, 64, 100, 135, 176, 220, 262]
     df["Rnd"] = pd.cut(df["Pick"], bins=round_bins, labels=[1, 2, 3, 4, 5, 6, 7]).astype("float")
 
-# Site-facing score contract.
 df["apex_raw"] = pd.to_numeric(df["apex"], errors="coerce")
 df["apex_score"] = pd.to_numeric(first_existing(df, ["recommended_candidate_score", "apex_conservative_050", "apex"]), errors="coerce")
 df["apex_edge"] = pd.to_numeric(first_existing(df, ["conservative_surplus_050", "surplus"], 0.0), errors="coerce")
@@ -101,14 +192,21 @@ string_defaults = {
     "prospect_lens_status": "not_available",
     "prospect_production_signal": "profile_only",
     "prospect_caution_flags": "none",
+    "projection_phase": "",
+    "qb_lens_label": "",
+    "qb_lens_confidence": "",
+    "qb_lens_warning": "",
+    "qb_lens_reasons": "",
 }
 for col, default in string_defaults.items():
     if col not in df.columns:
         df[col] = default
     df[col] = df[col].fillna(default).astype(str)
 
+df.loc[df["projection_phase"].isin(["", "nan", "None"]), "projection_phase"] = default_projection_phase(df)
+
 if "prospect_is_recent" not in df.columns:
-    df["prospect_is_recent"] = pd.to_numeric(df["Year"], errors="coerce").ge(2024) | df["y"].isna()
+    df["prospect_is_recent"] = pd.to_numeric(df["Year"], errors="coerce").ge(RECENT_START_YEAR) | df["y"].isna()
 else:
     df["prospect_is_recent"] = df["prospect_is_recent"].fillna(False).astype(bool)
 
@@ -131,13 +229,16 @@ for col in ["implied_pick", "pick_delta", "p_star", "p_starter", "p_contrib", "p
     if col not in df.columns:
         df[col] = np.nan
 
+df["outcome_data_year"] = OUTCOME_DATA_YEAR
+df = clean_qb_labels(df)
+
 numeric_cols = [
     "CarAV", "y", "apex_score", "apex_raw", "exp_at_pick", "apex_edge", "raw_edge",
     "apex_conservative_025", "apex_conservative_075", "implied_pick", "pick_delta",
     "p_star", "p_starter", "p_contrib", "p_bust", "apex_pff", "pff_edge", "apex_live",
     "position_mean_delta", "position_win_rate", "position_worst_delta", "front_office_edge",
     "front_office_score", "prospect_lens_score", "prospect_production_score",
-    "prospect_caution_count", "prospect_signal_count",
+    "prospect_caution_count", "prospect_signal_count", "outcome_data_year",
 ]
 for col in numeric_cols:
     df[col] = pd.to_numeric(df[col], errors="coerce").round(4)
@@ -158,5 +259,5 @@ for target in TARGETS:
         out = out.replace('href="docs/', 'href="')
     target.write_text(out)
 
-print("rows:", len(rows), "size:", len(html) // 1024, "KB")
-print("site_fields: prospect_lens_call, prospect_lens_score, front_office_call")
+print("rows:", len(rows), "size:", len(html) // 1024, "KB", "outcome_data_year:", OUTCOME_DATA_YEAR)
+print("site_fields: prospect_lens_call, qb_lens_label, projection_phase, outcome_data_year")

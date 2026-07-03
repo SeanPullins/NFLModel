@@ -16,6 +16,7 @@ on:
       - "src/feature_registry.py"
       - "src/improve.py"
       - "src/add_conservative_scores.py"
+      - "src/apply_front_office_labels.py"
       - "src/build_site.py"
       - "src/forecasting_sprint.py"
       - "src/template.html"
@@ -148,6 +149,14 @@ jobs:
       - name: Build zero-cost forecasting sprint report
         run: python src/forecasting_sprint.py --out-dir reports
 
+      - name: Apply front-office decision labels
+        run: |
+          python src/apply_front_office_labels.py \
+            --reports-dir reports \
+            --board data/apex_board.csv \
+            --summary reports/front_office_board_report.json
+          python src/build_site.py
+
       - name: Commit generated site files
         if: github.ref == 'refs/heads/main'
         run: |
@@ -176,6 +185,7 @@ jobs:
           cp reports/apex_factor_sweep_report.json _site/data/apex_factor_sweep_report.json || true
           cp reports/nested_factor_backtest_report.json _site/data/nested_factor_backtest_report.json || true
           cp reports/forecasting_sprint_report.json _site/data/forecasting_sprint_report.json || true
+          cp reports/front_office_board_report.json _site/data/front_office_board_report.json || true
           touch _site/.nojekyll
 
       - name: Configure GitHub Pages
@@ -216,6 +226,8 @@ jobs:
           cat reports/predraft_backtest_report.json || true
           echo "=== forecasting_sprint_report.json ==="
           cat reports/forecasting_sprint_report.json || true
+          echo "=== front_office_board_report.json ==="
+          cat reports/front_office_board_report.json || true
           echo "=== forecasting_agent_tasks.md ==="
           cat reports/forecasting_agent_tasks.md || true
           echo "=== validation gates ==="

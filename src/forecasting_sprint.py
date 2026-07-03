@@ -23,6 +23,9 @@ AGENTS = [
     ["Calibration Agent", "historical buckets", "Check if value/fade bands map to real outperformance."],
     ["Product/Board Agent", "static-site contract checks", "Keep default, challenger, and experimental outputs clearly separated."],
 ]
+POSITION_TRUST_COLUMNS = ["pos_g", "years", "n", "mean_delta", "median_delta", "win_rate", "worst_delta", "trust_label"]
+PICK_BUCKET_COLUMNS = ["pick_bucket", "n", "apex_spearman", "market_spearman", "lift"]
+EDGE_CAL_COLUMNS = ["edge_band", "n", "beat_market_rate", "avg_actual_vs_market", "avg_edge"]
 
 
 def read_csv(path: Path) -> pd.DataFrame:
@@ -90,9 +93,8 @@ def trust(mean: float | None, worst: float | None, win: float | None, years: int
 
 
 def position_trust(pos: pd.DataFrame) -> pd.DataFrame:
-    cols = ["pos_g", "years", "n", "mean_delta", "median_delta", "win_rate", "worst_delta", "trust_label"]
     if pos.empty or "pos_g" not in pos.columns or "delta_raw_vs_pick" not in pos.columns:
-        return pd.DataFrame(columns=cols)
+        return pd.DataFrame(columns=POSITION_TRUST_COLUMNS)
     rows = []
     for p, g in pos.groupby("pos_g"):
         d = num(g["delta_raw_vs_pick"])
@@ -110,7 +112,9 @@ def position_trust(pos: pd.DataFrame) -> pd.DataFrame:
         }
         row["trust_label"] = trust(row["mean_delta"], row["worst_delta"], row["win_rate"], row["years"])
         rows.append(row)
-    return pd.DataFrame(rows).sort_values(["trust_label", "mean_delta"], ascending=[True, False])
+    if not rows:
+        return pd.DataFrame(columns=POSITION_TRUST_COLUMNS)
+    return pd.DataFrame(rows, columns=POSITION_TRUST_COLUMNS).sort_values(["trust_label", "mean_delta"], ascending=[True, False])
 
 
 def pick_score_cols(board: pd.DataFrame) -> tuple[str | None, str | None]:
@@ -127,44 +131,42 @@ def rho(a: pd.Series, b: pd.Series) -> float | None:
 
 
 def pick_bucket_lift(board: pd.DataFrame) -> pd.DataFrame:
-    cols = ["pick_bucket", "n", "apex_spearman", "market_spearman", "lift"]
     score, market = pick_score_cols(board)
     if board.empty or not score or not market or "Pick" not in board.columns or "y" not in board.columns:
-        return pd.DataFrame(columns=cols)
+        return pd.DataFrame(columns=PICK_BUCKET_COLUMNS)
     df = board.copy()
     df["Pick"] = pd.to_numeric(df["Pick"], errors="coerce")
     df = df[df["Pick"].lt(263) & df["y"].notna()].copy()
     if df.empty:
-        return pd.DataFrame(columns=cols)
+        return pd.DataFrame(columns=PICK_BUCKET_COLUMNS)
     df["pick_bucket"] = pd.cut(df.Pick, [0, 32, 64, 100, 150, 262], labels=["1-32", "33-64", "65-100", "101-150", "151-262"])
     rows = []
     for bucket, g in df.groupby("pick_bucket", observed=True):
         ar, mr = rho(g[score], g.y), rho(g[market], g.y)
         rows.append({"pick_bucket": str(bucket), "n": int(len(g)), "apex_spearman": ar, "market_spearman": mr, "lift": None if ar is None or mr is None else round(ar - mr, 4)})
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows, columns=PICK_BUCKET_COLUMNS)
 
 
 def edge_calibration(board: pd.DataFrame) -> pd.DataFrame:
-    cols = ["edge_band", "n", "beat_market_rate", "avg_actual_vs_market", "avg_edge"]
     score, market = pick_score_cols(board)
     if board.empty or not score or not market or "y" not in board.columns:
-        return pd.DataFrame(columns=cols)
+        return pd.DataFrame(columns=EDGE_CAL_COLUMNS)
     df = board.copy()
     df["Pick"] = pd.to_numeric(df.get("Pick", np.nan), errors="coerce")
     df = df[df.Pick.lt(263) & df.y.notna()].copy()
     if df.empty:
-        return pd.DataFrame(columns=cols)
+        return pd.DataFrame(columns=EDGE_CAL_COLUMNS)
     scale = 100.0 if pd.to_numeric(df[[score, market, "y"]].stack(), errors="coerce").median() > 1.5 else 1.0
     df["edge"] = (pd.to_numeric(df[score], errors="coerce") - pd.to_numeric(df[market], errors="coerce")) * (100.0 / scale)
     df["actual_vs_market"] = (pd.to_numeric(df.y, errors="coerce") - pd.to_numeric(df[market], errors="coerce")) * (100.0 / scale)
     df = df.dropna(subset=["edge", "actual_vs_market"])
     if df.empty:
-        return pd.DataFrame(columns=cols)
+        return pd.DataFrame(columns=EDGE_CAL_COLUMNS)
     df["edge_band"] = pd.cut(df.edge, [-np.inf, -5, -2, 2, 5, np.inf], labels=["strong_fade", "fade", "neutral", "value", "strong_value"])
     rows = []
     for band, g in df.groupby("edge_band", observed=True):
         rows.append({"edge_band": str(band), "n": int(len(g)), "beat_market_rate": round(float((g.actual_vs_market > 0).mean()), 4), "avg_actual_vs_market": round(float(g.actual_vs_market.mean()), 2), "avg_edge": round(float(g.edge.mean()), 2)})
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows, columns=EDGE_CAL_COLUMNS)
 
 
 def records(df: pd.DataFrame) -> list[dict[str, Any]]:
@@ -178,10 +180,12 @@ def work_queue(report: dict[str, Any], pos: pd.DataFrame, buckets: pd.DataFrame)
     current = report["yearly_models"]["profile_raw_apex"]["summary"]
     if current.get("worst") is not None and current["worst"] < -0.02:
         tasks.append({"priority": "P0", "owner_agent": "Validation Agent", "task": "Reduce worst-year drawdown before promoting any stronger score.", "gate": "Worst-year delta >= -0.020 while mean lift stays positive."})
-    weak_pos = pos[pos.trust_label.eq("shrink_or_suppress")].pos_g.tolist() if not pos.empty else []
+    weak_pos = pos[pos.trust_label.eq("shrink_or_suppress")].pos_g.tolist() if not pos.empty and "trust_label" in pos.columns else []
     if weak_pos:
         tasks.append({"priority": "P0", "owner_agent": "Position Specialist Agent", "task": f"Add trust-aware residual labels/gates for unstable positions: {', '.join(weak_pos)}.", "gate": "Negative position edges are shrunk or labeled scout-required."})
-    weak_buckets = buckets[pd.to_numeric(buckets.get("lift"), errors="coerce").fillna(0).lt(0)].pick_bucket.tolist() if not buckets.empty else []
+    weak_buckets = []
+    if not buckets.empty and "lift" in buckets.columns:
+        weak_buckets = buckets[pd.to_numeric(buckets["lift"], errors="coerce").fillna(0).lt(0)].pick_bucket.tolist()
     if weak_buckets:
         tasks.append({"priority": "P1", "owner_agent": "Calibration Agent", "task": f"Calibrate or suppress edges in weak pick ranges: {', '.join(weak_buckets)}.", "gate": "Bucket lift non-negative or visibly low-confidence."})
     tasks.append({"priority": "P1", "owner_agent": "Data QA Agent", "task": "Block zero-row dashboard publishes.", "gate": "GitHub Pages cannot publish an empty board."})
@@ -203,11 +207,11 @@ def write_md(report: dict[str, Any], path: Path) -> None:
 
 
 def main() -> None:
-    p = argparse.ArgumentParser()
-    p.add_argument("--reports-dir", default=str(ROOT / "reports"))
-    p.add_argument("--data-dir", default=str(ROOT / "data"))
-    p.add_argument("--out-dir", default=str(ROOT / "reports"))
-    args = p.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--reports-dir", default=str(ROOT / "reports"))
+    parser.add_argument("--data-dir", default=str(ROOT / "data"))
+    parser.add_argument("--out-dir", default=str(ROOT / "reports"))
+    args = parser.parse_args()
     reports, data, out = Path(args.reports_dir), Path(args.data_dir), Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
 

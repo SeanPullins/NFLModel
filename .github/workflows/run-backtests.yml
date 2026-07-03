@@ -15,6 +15,7 @@ on:
       - "src/build_cfbd_production.py"
       - "src/cfbd_signal_audit.py"
       - "src/free_signal_backlog.py"
+      - "src/build_prospect_lens.py"
       - "src/build_features.py"
       - "src/feature_registry.py"
       - "src/improve.py"
@@ -170,12 +171,17 @@ jobs:
           python src/free_signal_backlog.py
           python src/forecasting_sprint.py --out-dir reports
 
-      - name: Apply front-office decision labels
+      - name: Apply front-office and Prospect Lens labels
         run: |
           python src/apply_front_office_labels.py \
             --reports-dir reports \
             --board data/apex_board.csv \
             --summary reports/front_office_board_report.json
+          python src/build_prospect_lens.py \
+            --board data/apex_board.csv \
+            --cfbd data/production/cfbd_production.csv \
+            --report reports/prospect_lens_report.json \
+            --recent reports/prospect_lens_recent.csv
           python src/build_site.py
 
       - name: Commit generated site files
@@ -212,6 +218,8 @@ jobs:
           cp reports/nested_factor_backtest_report.json _site/data/nested_factor_backtest_report.json || true
           cp reports/forecasting_sprint_report.json _site/data/forecasting_sprint_report.json || true
           cp reports/front_office_board_report.json _site/data/front_office_board_report.json || true
+          cp reports/prospect_lens_report.json _site/data/prospect_lens_report.json || true
+          cp reports/prospect_lens_recent.csv _site/data/prospect_lens_recent.csv || true
           cp reports/cfbd_signal_audit.json _site/data/cfbd_signal_audit.json || true
           cp reports/cfbd_signal_audit.csv _site/data/cfbd_signal_audit.csv || true
           cp reports/cfbd_recent_pick_notes.csv _site/data/cfbd_recent_pick_notes.csv || true
@@ -297,6 +305,8 @@ jobs:
           cat reports/cfbd_download_report.json || true
           echo "=== cfbd_signal_audit.json ==="
           cat reports/cfbd_signal_audit.json || true
+          echo "=== prospect_lens_report.json ==="
+          cat reports/prospect_lens_report.json || true
           echo "=== free_signal_backlog.json ==="
           cat reports/free_signal_backlog.json || true
           echo "=== pages_deploy_status.json ==="

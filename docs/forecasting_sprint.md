@@ -20,9 +20,11 @@ Goal: improve APEX as a forecasting product without paid APIs, paid data pulls, 
 | Calibration Agent | Historical bucket/base-rate calibration | Verify that value/fade bands actually map to career outperformance. | Edge calibration table and pick-bucket lift. |
 | Product/Board Agent | Static-site contract checks | Keep the board honest and usable: separate default, challenger, experimental, and low-trust labels. | Dashboard/report guidance. |
 
-## First implementation now in repo
+## Implemented in this sprint
 
-This sprint adds `src/forecasting_sprint.py`, a zero-cost audit runner that consumes existing validation artifacts and writes:
+### 1. Forecasting audit runner
+
+`src/forecasting_sprint.py` consumes existing validation artifacts and writes:
 
 ```bash
 python src/forecasting_sprint.py --out-dir reports
@@ -38,7 +40,40 @@ reports/forecasting_edge_calibration.csv
 reports/forecasting_agent_tasks.md
 ```
 
-The workflow also gets a site build guard: `src/build_site.py` refuses to publish a zero-row dashboard or a board missing required columns.
+### 2. Front-office decision labels
+
+`src/apply_front_office_labels.py` turns validated diagnostics into draft-room calls without promoting a new headline model:
+
+```bash
+python src/apply_front_office_labels.py \
+  --reports-dir reports \
+  --board data/apex_board.csv \
+  --summary reports/front_office_board_report.json
+```
+
+It appends these board columns:
+
+```text
+position_trust_label
+position_mean_delta
+position_win_rate
+position_worst_delta
+pick_bucket
+front_office_edge
+edge_band
+front_office_confidence
+front_office_call
+front_office_score
+front_office_status
+```
+
+`front_office_call` can be `attack_value`, `value_watch`, `fade_watch`, `strong_fade`, `scout_required`, `model_note_only`, `hold_market`, or `prospect_watch`.
+
+`front_office_score` is a guardrail score only. It shrinks the edge by position trust and is not the public headline unless a future backtest gate promotes it.
+
+### 3. Site build guard
+
+`src/build_site.py` refuses to publish a zero-row dashboard or a board missing required score/market columns.
 
 ## Forecasting roadmap
 
@@ -54,7 +89,8 @@ The workflow also gets a site build guard: `src/build_site.py` refuses to publis
 - Use position trust labels to mark where APEX has earned disagreement rights.
 - Add pick-range trust labels for first round, Day 2, top 100, and Day 3.
 - Gate severe negative windows before chasing higher average lift.
-- Treat QB and DB residuals as scout-required unless their own validation improves.
+- Treat QB as scout-required unless its own validation improves.
+- Treat any position with negative/wild rolling history as `model_note_only`, not an automatic attack/fade.
 
 ### Phase 3 — pre-draft forecasting research
 

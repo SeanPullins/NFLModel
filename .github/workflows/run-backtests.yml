@@ -14,6 +14,7 @@ on:
       - "src/build_qb_production.py"
       - "src/build_cfbd_production.py"
       - "src/cfbd_signal_audit.py"
+      - "src/free_signal_backlog.py"
       - "src/build_features.py"
       - "src/feature_registry.py"
       - "src/improve.py"
@@ -35,6 +36,7 @@ on:
       - "data/production/**"
       - "docs/forecasting_sprint.md"
       - "docs/cfbd_signal_research.md"
+      - "docs/free_signal_scouting_plan.md"
 
 jobs:
   backtest:
@@ -85,7 +87,7 @@ jobs:
 
       - name: Build CFBD production research features
         env:
-          CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
+          CFBD_API_KEY: ${{ secrets.CFBD_API_KEY || secrets.CFDB_API_KEY }}
           COLLEGE_FOOTBALL_DATA_API_KEY: ${{ secrets.COLLEGE_FOOTBALL_DATA_API_KEY }}
           CFB_DATA_API_KEY: ${{ secrets.CFB_DATA_API_KEY }}
         run: |
@@ -160,7 +162,9 @@ jobs:
           python src/validation_gates.py reports/nested_factor_backtest_summary.csv --delta-col delta_nested_vs_pick_spearman_drafted --out reports/nested_factor_validation_gates.json
 
       - name: Build zero-cost forecasting sprint report
-        run: python src/forecasting_sprint.py --out-dir reports
+        run: |
+          python src/free_signal_backlog.py
+          python src/forecasting_sprint.py --out-dir reports
 
       - name: Apply front-office decision labels
         run: |
@@ -202,6 +206,8 @@ jobs:
           cp reports/cfbd_signal_audit.json _site/data/cfbd_signal_audit.json || true
           cp reports/cfbd_signal_audit.csv _site/data/cfbd_signal_audit.csv || true
           cp reports/cfbd_recent_pick_notes.csv _site/data/cfbd_recent_pick_notes.csv || true
+          cp reports/free_signal_backlog.json _site/data/free_signal_backlog.json || true
+          cp reports/free_signal_backlog.csv _site/data/free_signal_backlog.csv || true
           touch _site/.nojekyll
 
       - name: Configure GitHub Pages
@@ -244,6 +250,8 @@ jobs:
           cat reports/cfbd_download_report.json || true
           echo "=== cfbd_signal_audit.json ==="
           cat reports/cfbd_signal_audit.json || true
+          echo "=== free_signal_backlog.json ==="
+          cat reports/free_signal_backlog.json || true
           echo "=== forecasting_sprint_report.json ==="
           cat reports/forecasting_sprint_report.json || true
           echo "=== front_office_board_report.json ==="

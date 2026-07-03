@@ -23,10 +23,14 @@ SITE_COLS = [
     "prospect_caution_flags", "prospect_caution_count", "prospect_signal_count",
     "projection_phase", "outcome_data_year", "qb_lens_label", "qb_lens_confidence",
     "qb_lens_warning", "qb_lens_reasons",
+    "display_actual_pick", "display_model_pick", "display_slot_value", "display_slot_label",
+    "display_star_pct", "display_starter_pct", "display_role_pct", "display_bust_pct",
+    "display_bust_band", "odds_calibration_note",
 ]
 
 REQUIRED_INPUT_COLS = ["Year", "Player", "Pos", "pos_g", "Pick", "CarAV", "y", "apex", "exp_at_pick"]
 RECENT_START_YEAR = 2024
+MAX_PICK = 262
 
 
 def first_existing(df: pd.DataFrame, candidates: list[str], fallback: float | str | None = None):
@@ -55,9 +59,7 @@ def load_board(path: Path = DATA_PATH) -> pd.DataFrame:
 
 def detect_outcome_data_year(board: pd.DataFrame) -> int:
     years = pd.to_numeric(board.loc[pd.to_numeric(board["y"], errors="coerce").notna(), "Year"], errors="coerce").dropna()
-    if years.empty:
-        return 2024
-    return int(years.max())
+    return 2024 if years.empty else int(years.max())
 
 
 def default_projection_phase(board: pd.DataFrame) -> pd.Series:
@@ -70,17 +72,60 @@ def default_projection_phase(board: pd.DataFrame) -> pd.Series:
     return out
 
 
+def make_slot_label(slot_value: pd.Series) -> pd.Series:
+    val = pd.to_numeric(slot_value, errors="coerce")
+    out = pd.Series("No pick data", index=slot_value.index, dtype="object")
+    out[val.notna() & val.between(-3, 3)] = "Fair value"
+    out[val.gt(3)] = val[val.gt(3)].round().astype(int).map(lambda x: f"Value +{x} slots")
+    out[val.lt(-3)] = val[val.lt(-3)].round().astype(int).map(lambda x: f"Reach {x} slots")
+    return out
+
+
+def make_bust_band(pct: pd.Series) -> pd.Series:
+    p = pd.to_numeric(pct, errors="coerce")
+    out = pd.Series("Unknown", index=pct.index, dtype="object")
+    out[p.notna() & p.lt(0.18)] = "Low"
+    out[p.notna() & p.ge(0.18) & p.lt(0.32)] = "Medium"
+    out[p.notna() & p.ge(0.32) & p.lt(0.48)] = "High"
+    out[p.notna() & p.ge(0.48)] = "Very High"
+    return out
+
+
+def add_display_defaults(board: pd.DataFrame) -> pd.DataFrame:
+    out = board.copy()
+    pick = pd.to_numeric(out.get("Pick", pd.Series(np.nan, index=out.index)), errors="coerce").where(lambda x: x.between(1, MAX_PICK))
+    model_pick = pd.to_numeric(out.get("implied_pick", pd.Series(np.nan, index=out.index)), errors="coerce").where(lambda x: x.between(1, MAX_PICK))
+    slot_value = pick - model_pick
+
+    if "display_actual_pick" not in out.columns:
+        out["display_actual_pick"] = pick
+    if "display_model_pick" not in out.columns:
+        out["display_model_pick"] = model_pick
+    if "display_slot_value" not in out.columns:
+        out["display_slot_value"] = slot_value
+    if "display_slot_label" not in out.columns:
+        out["display_slot_label"] = make_slot_label(out["display_slot_value"])
+    if "display_star_pct" not in out.columns:
+        out["display_star_pct"] = pd.to_numeric(out.get("p_star", pd.Series(np.nan, index=out.index)), errors="coerce")
+    if "display_starter_pct" not in out.columns:
+        out["display_starter_pct"] = pd.to_numeric(out.get("p_starter", pd.Series(np.nan, index=out.index)), errors="coerce")
+    if "display_role_pct" not in out.columns:
+        out["display_role_pct"] = pd.to_numeric(out.get("p_contrib", pd.Series(np.nan, index=out.index)), errors="coerce")
+    if "display_bust_pct" not in out.columns:
+        out["display_bust_pct"] = pd.to_numeric(out.get("p_bust", pd.Series(np.nan, index=out.index)), errors="coerce")
+    if "display_bust_band" not in out.columns:
+        out["display_bust_band"] = make_bust_band(out["display_bust_pct"])
+    if "odds_calibration_note" not in out.columns:
+        out["odds_calibration_note"] = "Model-defined outcome buckets; run calibrate_outcome_odds.py for slot-calibrated display odds"
+    return out
+
+
 def clean_qb_labels(board: pd.DataFrame) -> pd.DataFrame:
     out = board.copy()
     qb = out.get("pos_g", pd.Series("", index=out.index)).astype(str).eq("QB") | out.get("Pos", pd.Series("", index=out.index)).astype(str).eq("QB")
-    if "qb_lens_label" not in out.columns:
-        out["qb_lens_label"] = ""
-    if "qb_lens_confidence" not in out.columns:
-        out["qb_lens_confidence"] = ""
-    if "qb_lens_warning" not in out.columns:
-        out["qb_lens_warning"] = ""
-    if "qb_lens_reasons" not in out.columns:
-        out["qb_lens_reasons"] = ""
+    for col in ["qb_lens_label", "qb_lens_confidence", "qb_lens_warning", "qb_lens_reasons"]:
+        if col not in out.columns:
+            out[col] = ""
 
     actual = pd.to_numeric(out.get("y", pd.Series(np.nan, index=out.index)), errors="coerce")
     score = pd.to_numeric(out.get("prospect_lens_score", out.get("apex_score", pd.Series(0.50, index=out.index))), errors="coerce").fillna(0.50)
@@ -98,7 +143,7 @@ def clean_qb_labels(board: pd.DataFrame) -> pd.DataFrame:
     needs = qb & label.isin(["", "nan", "None", "qb_model_greenlight", "qb_model_review"])
     new_label = pd.Series("qb_review_context_needed", index=out.index, dtype="object")
     # Labels are pre-draft-information only. Early NFL outcomes never change
-    # the label (that was hindsight leakage); they surface via qb_lens_warning.
+    # the label; they surface through the warning/evidence badge.
     qb_pass = pd.to_numeric(out.get("qb_pass_efficiency_score", pd.Series(np.nan, index=out.index)), errors="coerce")
     qb_create = pd.to_numeric(out.get("qb_creation_score", pd.Series(np.nan, index=out.index)), errors="coerce")
     balanced = qb_pass.ge(0.45) & qb_create.ge(0.45)
@@ -112,17 +157,13 @@ def clean_qb_labels(board: pd.DataFrame) -> pd.DataFrame:
 
     conf = out["qb_lens_confidence"].astype(str)
     conf_needs = qb & conf.isin(["", "nan", "None"])
-    out.loc[conf_needs, "qb_lens_confidence"] = np.where(
-        out.loc[conf_needs, "qb_lens_label"].eq("qb_projection_only_sample_warning"),
-        "medium_projection_low_live",
-        out.loc[conf_needs, "prospect_lens_confidence"].fillna("medium"),
-    )
+    out.loc[conf_needs, "qb_lens_confidence"] = out.loc[conf_needs, "prospect_lens_confidence"].fillna("medium")
     out.loc[qb, "prospect_lens_confidence"] = out.loc[qb, "qb_lens_confidence"]
 
     reasons = out["qb_lens_reasons"].astype(str)
     reasons_need = qb & reasons.isin(["", "nan", "None"])
-    fair = pd.to_numeric(out.get("implied_pick", pd.Series(np.nan, index=out.index)), errors="coerce")
-    pick = pd.to_numeric(out.get("Pick", pd.Series(np.nan, index=out.index)), errors="coerce")
+    fair = pd.to_numeric(out.get("display_model_pick", out.get("implied_pick", pd.Series(np.nan, index=out.index))), errors="coerce")
+    pick = pd.to_numeric(out.get("display_actual_pick", out.get("Pick", pd.Series(np.nan, index=out.index))), errors="coerce")
     generated_reasons = []
     for i in out.index:
         if not reasons_need.loc[i]:
@@ -130,19 +171,19 @@ def clean_qb_labels(board: pd.DataFrame) -> pd.DataFrame:
             continue
         parts = []
         if pd.notna(fair.loc[i]) and pd.notna(pick.loc[i]):
-            parts.append(f"fair slot {int(round(fair.loc[i]))} vs pick {int(round(pick.loc[i]))}")
+            parts.append(f"model pick #{int(round(fair.loc[i]))} vs actual #{int(round(pick.loc[i]))}")
         else:
             parts.append("profile/market projection")
         p, c = qb_pass.loc[i], qb_create.loc[i]
         if pd.notna(p) and pd.notna(c):
             if p >= 0.70 and c <= 0.45:
-                parts.append("efficiency-only profile; creation/volume unproven")
+                parts.append("efficient passer; creation/volume unproven")
             elif c >= 0.70 and p <= 0.35:
                 parts.append("creation-driven profile; passing efficiency lags")
             elif p >= 0.55 and c >= 0.55:
                 parts.append("balanced passing + creation production")
             else:
-                parts.append(f"pass eff {p:.0%} / creation {c:.0%}")
+                parts.append(f"pass efficiency {p:.0%} / creation {c:.0%}")
         elif prod.loc[i] >= 0.58:
             parts.append("production layer supports")
         elif prod.loc[i] <= 0.42:
@@ -212,6 +253,9 @@ string_defaults = {
     "qb_lens_confidence": "",
     "qb_lens_warning": "",
     "qb_lens_reasons": "",
+    "display_slot_label": "No pick data",
+    "display_bust_band": "Unknown",
+    "odds_calibration_note": "Slot-calibrated display odds not yet run",
 }
 for col, default in string_defaults.items():
     if col not in df.columns:
@@ -245,6 +289,7 @@ for col in ["implied_pick", "pick_delta", "p_star", "p_starter", "p_contrib", "p
         df[col] = np.nan
 
 df["outcome_data_year"] = OUTCOME_DATA_YEAR
+df = add_display_defaults(df)
 df = clean_qb_labels(df)
 
 numeric_cols = [
@@ -254,6 +299,8 @@ numeric_cols = [
     "position_mean_delta", "position_win_rate", "position_worst_delta", "front_office_edge",
     "front_office_score", "prospect_lens_score", "prospect_production_score",
     "prospect_caution_count", "prospect_signal_count", "outcome_data_year",
+    "display_actual_pick", "display_model_pick", "display_slot_value",
+    "display_star_pct", "display_starter_pct", "display_role_pct", "display_bust_pct",
 ]
 for col in numeric_cols:
     df[col] = pd.to_numeric(df[col], errors="coerce").round(4)
@@ -275,4 +322,4 @@ for target in TARGETS:
     target.write_text(out)
 
 print("rows:", len(rows), "size:", len(html) // 1024, "KB", "outcome_data_year:", OUTCOME_DATA_YEAR)
-print("site_fields: prospect_lens_call, qb_lens_label, projection_phase, outcome_data_year")
+print("site_fields: display_model_pick, display_slot_value, display_bust_pct, qb_lens_label")

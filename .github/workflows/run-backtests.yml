@@ -52,7 +52,7 @@ jobs:
       id-token: write
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: https://seanpullins.github.io/NFLModel/
 
     steps:
       - name: Check out repo
@@ -229,10 +229,48 @@ jobs:
         with:
           path: _site
 
-      - name: Deploy to GitHub Pages
+      - name: Deploy to GitHub Pages attempt 1
         if: github.ref == 'refs/heads/main'
-        id: deployment
+        id: pages_deploy_1
+        continue-on-error: true
         uses: actions/deploy-pages@v4
+
+      - name: Wait before Pages deploy retry 2
+        if: github.ref == 'refs/heads/main' && steps.pages_deploy_1.outcome == 'failure'
+        run: sleep 30
+
+      - name: Deploy to GitHub Pages attempt 2
+        if: github.ref == 'refs/heads/main' && steps.pages_deploy_1.outcome == 'failure'
+        id: pages_deploy_2
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+
+      - name: Wait before Pages deploy retry 3
+        if: github.ref == 'refs/heads/main' && steps.pages_deploy_1.outcome == 'failure' && steps.pages_deploy_2.outcome == 'failure'
+        run: sleep 60
+
+      - name: Deploy to GitHub Pages attempt 3
+        if: github.ref == 'refs/heads/main' && steps.pages_deploy_1.outcome == 'failure' && steps.pages_deploy_2.outcome == 'failure'
+        id: pages_deploy_3
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+
+      - name: Record Pages deployment status
+        if: always()
+        run: |
+          mkdir -p reports
+          cat > reports/pages_deploy_status.json <<JSON
+          {
+            "attempt_1": "${{ steps.pages_deploy_1.outcome }}",
+            "attempt_2": "${{ steps.pages_deploy_2.outcome }}",
+            "attempt_3": "${{ steps.pages_deploy_3.outcome }}",
+            "note": "Backtests and artifacts are valid even if GitHub Pages deployment returns a transient deployment error."
+          }
+          JSON
+          cat reports/pages_deploy_status.json
+          if [ "${{ steps.pages_deploy_1.outcome }}" = "failure" ] && [ "${{ steps.pages_deploy_2.outcome }}" = "failure" ] && [ "${{ steps.pages_deploy_3.outcome }}" = "failure" ]; then
+            echo "::warning::GitHub Pages deployment failed after retries, but model/backtest/report artifacts completed. Re-run this workflow later to republish Pages."
+          fi
 
       - name: Show report summaries
         if: always()
@@ -261,6 +299,8 @@ jobs:
           cat reports/cfbd_signal_audit.json || true
           echo "=== free_signal_backlog.json ==="
           cat reports/free_signal_backlog.json || true
+          echo "=== pages_deploy_status.json ==="
+          cat reports/pages_deploy_status.json || true
           echo "=== forecasting_sprint_report.json ==="
           cat reports/forecasting_sprint_report.json || true
           echo "=== front_office_board_report.json ==="

@@ -10,7 +10,7 @@ DATA_PATH = ROOT / "data" / "apex_board.csv"
 TEMPLATE_PATH = ROOT / "src" / "template.html"
 TARGETS = [ROOT / "index.html", ROOT / "docs" / "index.html"]
 
-BASE_COLS = [
+SITE_COLS = [
     "Year",
     "Player",
     "Pos",
@@ -37,6 +37,17 @@ BASE_COLS = [
     "apex_pff",
     "pff_edge",
     "apex_live",
+    "position_trust_label",
+    "position_mean_delta",
+    "position_win_rate",
+    "position_worst_delta",
+    "front_office_edge",
+    "pick_bucket",
+    "edge_band",
+    "front_office_confidence",
+    "front_office_call",
+    "front_office_score",
+    "front_office_status",
 ]
 
 REQUIRED_INPUT_COLS = [
@@ -100,7 +111,7 @@ if "apex_conservative_050" in df.columns:
 # Optional PFF-informed challenger scores (model outputs only; see
 # src/build_pff_scores.py). Merged by Year+Player when the file exists.
 PFF_SCORES_PATH = ROOT / "data" / "pff_scores.csv"
-if PFF_SCORES_PATH.exists():
+if PFF_SCORES_PATH.exists() and "apex_pff" not in df.columns:
     pff = pd.read_csv(PFF_SCORES_PATH)[["Year", "Player", "apex_pff", "pff_edge"]]
     df = df.merge(pff.drop_duplicates(["Year", "Player"]), on=["Year", "Player"], how="left")
     print(f"merged PFF-informed scores for {int(df['apex_pff'].notna().sum())} rows")
@@ -117,7 +128,7 @@ if "Rnd" not in df.columns:
 # Main score is the gate-passing APEX Conservative 0.50 candidate when present.
 df["apex_raw"] = pd.to_numeric(df["apex"], errors="coerce")
 df["apex_score"] = pd.to_numeric(first_existing(df, ["recommended_candidate_score", "apex_conservative_050", "apex"]), errors="coerce")
-df["apex_edge"] = pd.to_numeric(first_existing(df, ["conservative_surplus_050", "surplus"]), errors="coerce")
+df["apex_edge"] = pd.to_numeric(first_existing(df, ["conservative_surplus_050", "surplus"], 0.0), errors="coerce")
 df["raw_edge"] = pd.to_numeric(first_existing(df, ["surplus"], 0.0), errors="coerce")
 if "apex_conservative_025" not in df.columns:
     df["apex_conservative_025"] = pd.to_numeric(df["exp_at_pick"], errors="coerce") + 0.25 * (df["apex_raw"] - pd.to_numeric(df["exp_at_pick"], errors="coerce"))
@@ -125,6 +136,31 @@ if "apex_conservative_075" not in df.columns:
     df["apex_conservative_075"] = pd.to_numeric(df["exp_at_pick"], errors="coerce") + 0.75 * (df["apex_raw"] - pd.to_numeric(df["exp_at_pick"], errors="coerce"))
 if "model_status" not in df.columns:
     df["model_status"] = "apex_conservative_050_candidate"
+
+# Guardrail / front-office labels added by src/apply_front_office_labels.py.
+string_defaults = {
+    "position_trust_label": "not_reviewed",
+    "pick_bucket": "unknown",
+    "edge_band": "neutral",
+    "front_office_confidence": "low",
+    "front_office_call": "hold_market",
+    "front_office_status": "guardrail_only",
+}
+for col, default in string_defaults.items():
+    if col not in df.columns:
+        df[col] = default
+    df[col] = df[col].fillna(default).astype(str)
+
+numeric_defaults = {
+    "position_mean_delta": np.nan,
+    "position_win_rate": np.nan,
+    "position_worst_delta": np.nan,
+    "front_office_edge": df["apex_edge"],
+    "front_office_score": df["apex_score"],
+}
+for col, default in numeric_defaults.items():
+    if col not in df.columns:
+        df[col] = default
 
 for col in [
     "implied_pick",
@@ -159,10 +195,15 @@ for col in [
     "apex_pff",
     "pff_edge",
     "apex_live",
+    "position_mean_delta",
+    "position_win_rate",
+    "position_worst_delta",
+    "front_office_edge",
+    "front_office_score",
 ]:
     df[col] = pd.to_numeric(df[col], errors="coerce").round(4)
 
-data = df[BASE_COLS].copy()
+data = df[SITE_COLS].copy()
 rows = data.astype(object).where(pd.notnull(data), None).values.tolist()
 if not rows:
     raise ValueError("Refusing to write dashboard with zero serialized rows.")
@@ -178,3 +219,4 @@ for target in TARGETS:
 
 print("rows:", len(rows), "size:", len(html) // 1024, "KB")
 print("main_score: apex_conservative_050 via apex_score")
+print("site_fields: front_office_call, confidence, position_trust_label")

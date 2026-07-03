@@ -12,6 +12,8 @@ on:
       - "src/download_source_data.py"
       - "src/build_consensus_board.py"
       - "src/build_qb_production.py"
+      - "src/build_cfbd_production.py"
+      - "src/cfbd_signal_audit.py"
       - "src/build_features.py"
       - "src/feature_registry.py"
       - "src/improve.py"
@@ -32,6 +34,7 @@ on:
       - "data/consensus/**"
       - "data/production/**"
       - "docs/forecasting_sprint.md"
+      - "docs/cfbd_signal_research.md"
 
 jobs:
   backtest:
@@ -79,6 +82,16 @@ jobs:
           python src/build_qb_production.py
           python src/build_features.py --end-year 2021
           python src/predraft_market.py --write-template --check
+
+      - name: Build CFBD production research features
+        env:
+          CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
+          COLLEGE_FOOTBALL_DATA_API_KEY: ${{ secrets.COLLEGE_FOOTBALL_DATA_API_KEY }}
+          CFB_DATA_API_KEY: ${{ secrets.CFB_DATA_API_KEY }}
+        run: |
+          python src/build_cfbd_production.py --start-year 2004 --end-year 2026
+          python src/build_features.py --end-year 2021
+          python src/cfbd_signal_audit.py
 
       - name: Evaluate published board accuracy
         run: python src/evaluate_board.py
@@ -186,6 +199,9 @@ jobs:
           cp reports/nested_factor_backtest_report.json _site/data/nested_factor_backtest_report.json || true
           cp reports/forecasting_sprint_report.json _site/data/forecasting_sprint_report.json || true
           cp reports/front_office_board_report.json _site/data/front_office_board_report.json || true
+          cp reports/cfbd_signal_audit.json _site/data/cfbd_signal_audit.json || true
+          cp reports/cfbd_signal_audit.csv _site/data/cfbd_signal_audit.csv || true
+          cp reports/cfbd_recent_pick_notes.csv _site/data/cfbd_recent_pick_notes.csv || true
           touch _site/.nojekyll
 
       - name: Configure GitHub Pages
@@ -224,6 +240,10 @@ jobs:
           cat reports/predraft_market_status.json || true
           echo "=== predraft_backtest_report.json ==="
           cat reports/predraft_backtest_report.json || true
+          echo "=== cfbd_download_report.json ==="
+          cat reports/cfbd_download_report.json || true
+          echo "=== cfbd_signal_audit.json ==="
+          cat reports/cfbd_signal_audit.json || true
           echo "=== forecasting_sprint_report.json ==="
           cat reports/forecasting_sprint_report.json || true
           echo "=== front_office_board_report.json ==="

@@ -1,4 +1,4 @@
-"""Add conservative APEX blend scores to the public board.
+"""Add conservative APEX blend scores and display-board fields.
 
 APEX Conservative is not residual amplification. It is a safer blend between the
 market baseline and raw APEX:
@@ -8,6 +8,10 @@ market baseline and raw APEX:
 The 0.50 blend passed current stability gates in the 2011-2021 factor sweep, but
 is kept as a candidate until nested validation confirms it can be selected using
 only prior years.
+
+This step also writes the plain display fields the site needs: actual pick,
+should-have-gone slot, slot value, and calmer historical miss risk. That keeps
+the public board from falling back to compressed old p_bust buckets.
 """
 from __future__ import annotations
 
@@ -17,6 +21,10 @@ from pathlib import Path
 import pandas as pd
 
 from pipeline import ROOT
+try:
+    from calibrate_outcome_odds import add_display_odds
+except Exception:  # pragma: no cover
+    add_display_odds = None
 
 DEFAULT_FACTORS = [0.25, 0.50, 0.75]
 
@@ -61,8 +69,10 @@ def main() -> None:
     board = pd.read_csv(path)
     factors = parse_factors(args.factors)
     out = add_conservative_scores(board, factors)
+    if add_display_odds is not None:
+        out = add_display_odds(out)
     out.round(4).to_csv(path, index=False)
-    print(f"Added conservative APEX scores to {path}: {', '.join(str(f) for f in factors)}")
+    print(f"Added conservative APEX scores and display slots to {path}: {', '.join(str(f) for f in factors)}")
 
 
 if __name__ == "__main__":
